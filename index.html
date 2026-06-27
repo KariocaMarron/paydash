@@ -289,74 +289,35 @@
 <script>
 // ===== DEFAULT DATA =====
 const DEFAULTS = {
-  name:"Jose Batalha De Vasconcelos",
-  employer:"HICP Limited · Voco Southampton",
+  name:"Your name",
+  employer:"Your workplace",
   annualSalary:26436.80, hourlyRate:12.71, contractedHours:40,
   breakMins:30, hoursPerHolidayDay:10, minWage:12.71, ytdHours:0,
   taxAllowance:12570, taxRate:0.20, taxUpper:50270,
   niThreshold:12570, niRate:0.08, pensionLower:6240, pensionRate:0.05,
   roster:[
-    {day:"Monday",   start:"07:00", end:"19:30", status:""},
-    {day:"Tuesday",  start:"",      end:"",      status:"UNI"},
-    {day:"Wednesday",start:"",      end:"",      status:"UNI"},
-    {day:"Thursday", start:"",      end:"",      status:"UNI"},
-    {day:"Friday",   start:"07:00", end:"19:30", status:""},
-    {day:"Saturday", start:"07:00", end:"19:30", status:""},
-    {day:"Sunday",   start:"07:00", end:"19:30", status:""}
+    {day:"Monday",   start:"09:00", end:"17:00", status:""},
+    {day:"Tuesday",  start:"09:00", end:"17:00", status:""},
+    {day:"Wednesday",start:"09:00", end:"17:00", status:""},
+    {day:"Thursday", start:"09:00", end:"17:00", status:""},
+    {day:"Friday",   start:"09:00", end:"17:00", status:""},
+    {day:"Saturday", start:"", end:"", status:"OFF"},
+    {day:"Sunday",   start:"", end:"", status:"OFF"}
   ],
-  holiday:{taken:0, remain:63.80, future:200.20, sched:100.00, pending:0, yearEnd:164.00},
-  booked:[
-    {from:"17-07-2026", to:"20-07-2026", type:"Holiday"},
-    {from:"24-07-2026", to:"27-07-2026", type:"Holiday"},
-    {from:"31-07-2026", to:"01-08-2026", type:"Holiday"}
-  ],
+  holiday:{taken:0, remain:0, future:0, sched:0, pending:0, yearEnd:0},
+  booked:[],
   teamRota:{
-    dates:["Mon 29/06","Tue 30/06","Wed 01/07","Thu 02/07","Fri 03/07","Sat 04/07","Sun 05/07"],
-    checkIn:[71,60,34,77,105,97,22],
-    checkOut:[106,53,64,52,75,107,109],
-    cruise:["Aidaperla, Arcadia, Majestic Princess","","Aurora","","Britannia","Celebrity Apex, MSC Virtuosa","Arvia, Liberty of the Seas, Queen Anne"],
-    depts:[
-      {name:"RECEPTION", staff:[
-        {n:"Carly",   d:["07:00-15:30","07:00-15:30","07:00-15:30","ADMIN","07:00-15:30","OFF","OFF"]},
-        {n:"Karol",   d:["OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00","14:30-23:00"]},
-        {n:"Su",      d:["14:30-23:00","OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00"]},
-        {n:"Jose",    d:["07:00-19:30","UNI","UNI","UNI","07:00-19:30","07:00-19:30","07:00-19:30"]},
-        {n:"Ana",     d:["14:30-23:00","14:30-23:00","14:30-23:00","OFF","OFF","07:00-15:30","07:00-15:30"]},
-        {n:"Yasmina", d:["07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","OFF","OFF"]},
-        {n:"Jakub",   d:["OFF R","14:30-23:00","14:30-23:00","14:30-23:00","OFF R","07:00-15:30","07:00-15:30"]}
-      ]},
-      {name:"CONCIERGE", staff:[
-        {n:"Jo",   d:["OFF R","OFF R","Holiday","08:30-17:00","08:30-17:00","08:30-17:00","08:30-17:00"]},
-        {n:"Luis", d:["09:00-17:30","12:00-20:30","OFF","16:30-21:30","16:30-21:30","16:30-21:30","OFF"]}
-      ]},
-      {name:"NIGHTS", staff:[
-        {n:"Jamie",   d:["23:00-07:30","23:00-07:30","23:00-07:30","23:00-10:00","OFF","OFF","23:00-07:30"]},
-        {n:"Anthony", d:["23:00-07:30","23:00-07:30","OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30"]},
-        {n:"Dino",    d:["OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30","23:00-07:30","OFF"]}
-      ]}
-    ]
+    dates:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+    checkIn:[0,0,0,0,0,0,0],
+    checkOut:[0,0,0,0,0,0,0],
+    cruise:["","","","","","",""],
+    depts:[{name:"RECEPTION",staff:[]},{name:"CONCIERGE",staff:[]},{name:"NIGHTS",staff:[]}]
   },
   payslip:{
-    date:"26/06/2026", period:3, taxCode:"1257L", niCat:"A", empNo:"101022", rate:12.71, dayRate:127.11,
-    payments:[
-      ["SALARY",-0.10,2343.86],
-      ["DAYS CO SICK PAY",2033.70,3940.29],
-      ["NOR1",0.00,93.07],
-      ["HOLIDAYS TAKEN",0.00,305.05],
-      ["OTHERS",0.00,-409.05]
-    ],
-    paymentTotal:[2033.60,6273.22],
-    deductions:[
-      ["TAX",197.00,625.60],
-      ["NAT INSURANCE",78.85,250.34],
-      ["HSF",52.00,156.00],
-      ["WPR NEST PEN 1",60.54,188.52]
-    ],
-    deductionTotal:[388.39,1220.46],
-    taxablePay:[2033.60,6273.22],
-    employerNIC:[242.49,753.33],
-    employerPens:[45.41,141.40],
-    netPay:1645.21
+    date:"—", period:0, taxCode:"", niCat:"", empNo:"", rate:12.71, dayRate:127.10,
+    payments:[], paymentTotal:[0,0],
+    deductions:[], deductionTotal:[0,0],
+    taxablePay:[0,0], employerNIC:[0,0], employerPens:[0,0], netPay:0
   }
 };
 
