@@ -85,7 +85,13 @@
   .trota th{background:var(--g-purple);color:#fff;font-size:.72rem}
   .trota th.tot{background:#0e7a4a}
   .trota td.name{font-weight:700;text-align:left;background:#faf5ff;white-space:nowrap}
-  .deptrow td{background:#2b1b5e;color:#fff;font-weight:700;text-align:left;letter-spacing:.6px}
+  .deptrow td{color:#fff;font-weight:800;text-align:left;letter-spacing:1px;padding:11px 12px;font-size:.92rem;text-transform:uppercase;border-top:4px solid #fff}
+  .dept-reception td{background:linear-gradient(90deg,#1e40af,#4f9cff)}
+  .dept-concierge td{background:linear-gradient(90deg,#6d28d9,#a855f7)}
+  .dept-nights td{background:linear-gradient(90deg,#9d174d,#ff3d77)}
+  .staff-reception td.name{border-left:6px solid #4f9cff}
+  .staff-concierge td.name{border-left:6px solid #a855f7}
+  .staff-nights td.name{border-left:6px solid #ff3d77}
   .c-off{background:#e8f5e9;color:#1b5e20}
   .c-uni{background:#333;color:#fff;font-weight:700}
   .c-hol{background:#fff3cd;color:#7a5b00}
@@ -451,11 +457,11 @@ function renderTeam(){
   h+=info("Check in",t.checkIn);
   h+=info("Check out",t.checkOut);
   t.depts.forEach(dep=>{
-    h+='<tr class="deptrow"><td colspan="9">'+dep.name+'</td></tr>';
+    h+='<tr class="deptrow dept-'+dep.name.toLowerCase()+'"><td colspan="9">'+dep.name+'</td></tr>';
     dep.staff.forEach(st=>{
       let tot=0;
       const isJose=st.n.toLowerCase()==="jose";
-      h+='<tr class="'+(isJose?"row-jose":"")+'"><td class="name">'+st.n+'</td>';
+      h+='<tr class="'+(isJose?"row-jose ":"")+'staff-'+dep.name.toLowerCase()+'"><td class="name">'+st.n+'</td>';
       st.d.forEach(cell=>{
         const net=cellNet(cell); tot+=net;
         h+='<td class="'+cellClass(cell,dep.name)+'">'+cell+(net>0?'<br><small>'+net.toFixed(1)+'h</small>':'')+'</td>';
