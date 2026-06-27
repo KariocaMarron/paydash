@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jose — Pay, Hours & Holiday Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg1:#1b1035; --bg2:#2b1b5e;
+    --card:#ffffff; --ink:#1b1035; --muted:#6b7280;
+    --g-pink:linear-gradient(135deg,#ff6ec7,#ff3d77);
+    --g-purple:linear-gradient(135deg,#8b5cf6,#6d28d9);
+    --g-teal:linear-gradient(135deg,#2dd4bf,#0ea5a4);
+    --g-orange:linear-gradient(135deg,#ffb347,#ff7849);
+    --g-blue:linear-gradient(135deg,#4f9cff,#2563eb);
+    --g-green:linear-gradient(135deg,#5be584,#22c55e);
+    --radius:20px;
+    --shadow:0 10px 30px rgba(0,0,0,.18);
+    font-family:'Segoe UI',system-ui,Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:radial-gradient(1200px 600px at 10% -10%,#3a2080 0%,transparent 60%),
+               radial-gradient(1000px 500px at 110% 10%,#7a1f6e 0%,transparent 55%),
+               linear-gradient(160deg,var(--bg1),var(--bg2));
+    min-height:100vh;color:var(--ink);padding:18px;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  .hero{background:var(--g-purple);color:#fff;border-radius:var(--radius);padding:26px 28px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .hero:after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;background:rgba(255,255,255,.12);border-radius:50%}
+  .hero h1{font-size:1.7rem;margin-bottom:4px}
+  .hero p{opacity:.9;font-size:.95rem}
+  .hero .pill{display:inline-block;margin-top:12px;background:rgba(255,255,255,.18);padding:6px 14px;border-radius:999px;font-size:.85rem;font-weight:600}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:18px}
+  .tile{border-radius:var(--radius);padding:18px 20px;color:#fff;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .tile .lbl{font-size:.82rem;opacity:.95;font-weight:600;letter-spacing:.2px}
+  .tile .val{font-size:1.9rem;font-weight:800;margin-top:6px;line-height:1.1}
+  .tile .sub{font-size:.78rem;opacity:.92;margin-top:4px}
+  .t-pink{background:var(--g-pink)} .t-purple{background:var(--g-purple)}
+  .t-teal{background:var(--g-teal)} .t-orange{background:var(--g-orange)}
+  .t-blue{background:var(--g-blue)} .t-green{background:var(--g-green)}
+  .tile .emoji{position:absolute;right:14px;top:12px;font-size:1.5rem;opacity:.55}
+  .panel{background:var(--card);border-radius:var(--radius);padding:22px;margin-top:18px;box-shadow:var(--shadow)}
+  .panel h2{font-size:1.2rem;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .panel .hint{color:var(--muted);font-size:.85rem;margin-bottom:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:780px){.grid2{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th,td{padding:8px 6px;text-align:center;border-bottom:1px solid #eee}
+  th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.4px}
+  td input[type=time],td input[type=text]{width:100%;padding:6px;border:1px solid #e5e7eb;border-radius:8px;font-size:.85rem;text-align:center}
+  .daycell{font-weight:700;text-align:left}
+  .net{font-weight:800;color:#7c3aed}
+  .rowtot{background:#faf5ff}
+  label.f{display:block;font-size:.78rem;color:var(--muted);font-weight:600;margin-bottom:4px}
+  .field{margin-bottom:12px}
+  .field input,.field select{width:100%;padding:9px;border:1px solid #e5e7eb;border-radius:10px;font-size:.95rem}
+  .btn{border:none;border-radius:12px;padding:11px 16px;font-weight:700;color:#fff;cursor:pointer;font-size:.9rem}
+  .btn:hover{filter:brightness(1.05)}
+  .btn-p{background:var(--g-purple)} .btn-g{background:var(--g-green)} .btn-o{background:var(--g-orange)} .btn-b{background:var(--g-blue)}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .chartbox{position:relative;height:260px}
+  .badge{display:inline-block;padding:5px 12px;border-radius:999px;font-weight:700;font-size:.8rem}
+  .badge.ok{background:#dcfce7;color:#166534}
+  .badge.warn{background:#fef3c7;color:#92400e}
+  .badge.bad{background:#fee2e2;color:#991b1b}
+  .booked{list-style:none}
+  .booked li{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:12px;background:#f5f3ff;margin-bottom:8px;font-size:.9rem}
+  .booked li b{color:#6d28d9}
+  .kv{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px dashed #eee;font-size:.92rem}
+  .kv span:last-child{font-weight:700}
+  details.settings summary{cursor:pointer;font-weight:700;font-size:1.1rem;list-style:none}
+  details.settings summary::-webkit-details-marker{display:none}
+  .settings .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:14px}
+  .footnote{color:#cbb7ff;font-size:.78rem;text-align:center;margin:20px 0 6px}
+  .insight{background:#fff7ed;border-left:5px solid #ff7849;border-radius:12px;padding:12px 14px;font-size:.9rem;margin-top:12px}
+  code{background:#f1f5f9;padding:2px 6px;border-radius:6px;font-size:.85em}
+  /* team rota */
+  .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .trota{width:100%;border-collapse:collapse;font-size:.78rem;min-width:780px}
+  .trota th,.trota td{border:1px solid #e5e7eb;padding:6px 4px;text-align:center}
+  .trota th{background:var(--g-purple);color:#fff;font-size:.72rem}
+  .trota th.tot{background:#0e7a4a}
+  .trota td.name{font-weight:700;text-align:left;background:#faf5ff;white-space:nowrap}
+  .deptrow td{background:#2b1b5e;color:#fff;font-weight:700;text-align:left;letter-spacing:.6px}
+  .c-off{background:#e8f5e9;color:#1b5e20}
+  .c-uni{background:#333;color:#fff;font-weight:700}
+  .c-hol{background:#fff3cd;color:#7a5b00}
+  .c-admin{background:#e3f2fd;color:#0d47a1}
+  .c-rec{background:#e3f2fd;color:#0d47a1}
+  .c-con{background:#f3e5f5;color:#4a148c}
+  .c-night{background:#fce4ec;color:#880e4f}
+  .c-tot{font-weight:800;background:#e6f9ed;color:#0e7a4a}
+  .row-jose td{outline:2px solid #6d28d9;outline-offset:-2px}
+  .info-row td{background:#f8fafc;font-size:.74rem;color:#444}
+  .pslip td{font-size:.85rem}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{background:#f5f3ff;border-radius:999px;padding:6px 12px;font-size:.8rem;font-weight:600;color:#4a148c}
+  .gloss{font-size:.86rem;line-height:1.5}
+  .gloss li{margin-bottom:7px}
+  .gloss b{color:#6d28d9}
+  .netbig{font-size:1.6rem;font-weight:800;color:#22c55e}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1 id="heroName">Jose's Pay & Hours Dashboard</h1>
+    <p id="heroSub">HICP Limited · Voco Southampton — pay effective 1 April 2026</p>
+    <span class="pill" id="heroPill">£12.71/hr · £26,436.80 / year</span>
+  </div>
+
+  <!-- DRIVE SYNC BAR -->
+  <div class="panel" id="driveBar" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px">
+    <span id="driveDot" style="width:13px;height:13px;border-radius:50%;background:#cbd5e1;display:inline-block;flex:0 0 auto"></span>
+    <b style="flex:1;min-width:200px" id="driveStatus">Google Drive: starting…</b>
+    <button class="btn btn-b" onclick="driveConnect()">🔗 Connect to Drive</button>
+    <button class="btn btn-g" onclick="driveSaveNow()">☁️ Sync now</button>
+  </div>
+  <div class="panel" id="driveSetup" style="margin-top:12px;background:#fff7ed;border-left:5px solid #ff7849;display:none">
+    <b>⚠️ One-time setup needed.</b> Open the <b>SETUP_GoogleDrive.md</b> guide: create a free Google OAuth Client ID, paste it into the <code>CLIENT_ID</code> line near the bottom of this file, then open this page from your hosting URL (not by double-clicking the local file).
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <!-- MY ROSTER -->
+  <div class="panel">
+    <h2>🗓️ My weekly roster <span class="hint" style="margin:0 0 0 8px">edit times, totals update live</span></h2>
+    <div class="grid2">
+      <div>
+        <table id="rosterTable">
+          <thead><tr><th>Day</th><th>Start</th><th>End</th><th>Status</th><th>Net hrs</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr class="rowtot"><td class="daycell">Total</td><td colspan="3"></td><td class="net" id="weekNet">0.0h</td></tr></tfoot>
+        </table>
+        <div class="btnrow">
+          <button class="btn btn-p" onclick="saveAll()">💾 Save roster</button>
+          <button class="btn btn-b" onclick="logWeek()">➕ Add week to YTD hours</button>
+        </div>
+        <p class="hint" style="margin-top:8px">Status overrides times (UNI, OFF, OFF R, ADMIN, Holiday = 0 paid hours). Leave status blank to count the shift.</p>
+      </div>
+      <div>
+        <div class="kv"><span>This week — net hours</span><span id="wkHours">0.0 h</span></div>
+        <div class="kv"><span>This week value @ £<span class="r1">12.71</span></span><span id="wkValue">£0.00</span></div>
+        <div class="kv"><span>Contracted week (40h)</span><span id="wkContract">£508.40</span></div>
+        <div class="insight" id="otInsight"></div>
+        <h2 style="font-size:1rem;margin:16px 0 4px">📆 Weekly pay across the month</h2>
+        <div class="chartbox" style="height:200px"><canvas id="weekChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULL TEAM ROTA -->
+  <div class="panel">
+    <h2>👥 Team weekly rota — total weekly time</h2>
+    <p class="hint">Week 29/06/2026 – 05/07/2026. Totals are net (each worked shift minus a <span id="brkLabel">30</span>-min break). Your row is outlined.</p>
+    <div class="scrollx" id="teamRota"></div>
+    <p class="hint" id="cruiseLine" style="margin-top:12px"></p>
+  </div>
+
+  <!-- INCOME / TAKE-HOME -->
+  <div class="panel">
+    <h2>💷 Income &amp; estimated take-home</h2>
+    <p class="hint">Monthly figure based on 40 hours/week (your contracted salary). Take-home is an estimate using 2026/27 UK rates.</p>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span>Gross — weekly (40h)</span><span id="inWeek">£508.40</span></div>
+        <div class="kv"><span>Gross — monthly</span><span id="inMonth">£2,203.07</span></div>
+        <div class="kv"><span>Gross — yearly</span><span id="inYear">£26,436.80</span></div>
+        <div class="kv"><span>− Income Tax (yr)</span><span id="inTax">£0</span></div>
+        <div class="kv"><span>− National Insurance (yr)</span><span id="inNI">£0</span></div>
+        <div class="kv"><span>− NEST pension (yr)</span><span id="inPen">£0</span></div>
+        <div class="kv" style="border-bottom:none"><span><b>Take-home — monthly</b></span><span id="inNetMonth" style="color:#22c55e">£0</span></div>
+        <div class="kv" style="border-top:2px solid #eee"><span><b>Take-home — yearly</b></span><span id="inNetYear" style="color:#22c55e">£0</span></div>
+      </div>
+      <div><div class="chartbox"><canvas id="payChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- MIN WAGE -->
+  <div class="panel">
+    <h2>⚖️ Minimum-wage watchdog</h2>
+    <div id="mwBody"></div>
+  </div>
+
+  <!-- HOLIDAY -->
+  <div class="panel">
+    <h2>🏖️ Holiday &amp; lieu</h2>
+    <p class="hint">1 holiday day = <span id="hpdLabel">10</span> hours. Money values are at £<span class="r2">12.71</span>/hr.</p>
+    <div class="grid2">
+      <div>
+        <div class="kv"><span>Taken</span><span id="hTaken">0 h</span></div>
+        <div class="kv"><span>Remaining to date</span><span id="hRemain">63.8 h</span></div>
+        <div class="kv"><span>Future entitlement</span><span id="hFuture">200.2 h</span></div>
+        <div class="kv"><span>Booked / scheduled</span><span id="hBooked">100 h (10 days)</span></div>
+        <div class="kv"><span>Pending requests</span><span id="hPending">0 h</span></div>
+        <div class="kv"><span><b>Year-end balance</b></span><span id="hYearEnd"><b>164 h (16.4 days)</b></span></div>
+        <div class="kv" style="border-bottom:none"><span>💰 Remaining holiday value</span><span id="hRemainVal" style="color:#22c55e">£0</span></div>
+        <div class="kv"><span>💰 Booked holiday value</span><span id="hBookedVal">£0</span></div>
+        <h2 style="font-size:1rem;margin:14px 0 6px">📌 Booked dates</h2>
+        <ul class="booked" id="bookedList"></ul>
+        <p class="hint">Lieu balance: <b id="lieuBal">0 h</b> (no lieu currently recorded).</p>
+      </div>
+      <div><div class="chartbox"><canvas id="holChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- LATEST PAYSLIP -->
+  <div class="panel">
+    <h2>📄 Latest payslip — full breakdown</h2>
+    <p class="hint" id="pslipSub">Most recent payslip on file. Every line is explained below.</p>
+    <div class="btnrow" style="margin-bottom:12px"><input type="file" id="payPdf" accept="application/pdf" style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importPayslipPDF()">📤 Import payslip PDF</button></div><div id="payImportNote" class="insight" style="display:none">⚠️ Imported automatically from your PDF — please check the figures against the paper payslip. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoImport()">Undo import</button></div>
+      <div class="chips" id="payslipHead"></div>
+    <div class="grid2">
+      <div>
+        <h3 style="font-size:1rem;margin-bottom:6px;color:#166534">Payments (what you earned)</h3>
+        <div class="pslip" id="payPayments"></div>
+        <h3 style="font-size:1rem;margin:16px 0 6px;color:#991b1b">Deductions (taken from your pay)</h3>
+        <div class="pslip" id="payDeductions"></div>
+        <div id="paySummary" style="margin-top:14px"></div>
+      </div>
+      <div>
+        <h3 style="font-size:1rem;margin-bottom:8px">📖 What each line means</h3>
+        <ul class="gloss">
+          <li><b>SALARY</b> — your basic contracted monthly pay.</li>
+          <li><b>LEISUR CLB UPSEL</b> — commission for leisure-club memberships you upsold to guests.</li>
+          <li><b>HRS-O/TIME</b> — overtime: extra hours paid at your hourly rate (units × rate).</li>
+          <li><b>PAY-BACK PAY</b> — back pay owed from an earlier period (e.g. a backdated rise).</li>
+          <li><b>PAY-TMOTM</b> — a one-off award payment (e.g. "Team Member of the Month").</li>
+          <li><b>PAY HOLS &amp; LIEU</b> — payment for holiday or time-off-in-lieu hours.</li>
+          <li><b>HOLIDAYS TAKEN</b> — paid holiday days taken, at the day rate (£127.11 = 10h × £12.71).</li>
+          <li><b>LIEU DAYS TAKEN</b> — time-off-in-lieu days taken, at the same day rate.</li>
+          <li><b>ENHANCE HOL RATE</b> — holiday-pay top-up so leave is paid at your average rate (incl. regular extras), as UK law requires — not just basic.</li>
+          <li><b>DYS-UNPAID SICK</b> — a deduction for an unpaid sick day (shows as a minus).</li>
+          <li><b>DAYS CO SICK PAY</b> — company sick pay: paid sick days at the day rate (units × £127.11 = 10h × £12.71).</li>
+          <li><b>NOR1</b> — an additional pay element/allowance; if unsure what it covers, ask payroll.</li>
+          <li><b>OTHERS</b> — a year-to-date bucket totalling smaller miscellaneous items.</li>
+          <li><b>TAX</b> — PAYE income tax. Your code <b>1257L</b> means £12,570/yr is tax-free.</li>
+          <li><b>NAT INSURANCE</b> — your National Insurance (Category A).</li>
+          <li><b>WPR NEST PEN 1</b> — your workplace pension paid into NEST.</li>
+          <li><b>HSF</b> — a voluntary health cash-plan deduction (commonly the "Hospital Saturday Fund"); check with HR if unsure what it covers.</li>
+          <li><b>Employer NIC / Employer Pens</b> — paid by your employer <i>on top</i> of your wage; not taken from you.</li>
+          <li><b>NET PAY (BANK)</b> — what actually lands in your bank account.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="panel">
+    <details class="settings">
+      <summary>⚙️ Edit details &amp; backup</summary>
+      <div class="grid3">
+        <div class="field"><label class="f">Name</label><input id="s_name"></div>
+        <div class="field"><label class="f">Employer</label><input id="s_emp"></div>
+        <div class="field"><label class="f">Annual salary (£)</label><input id="s_salary" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Hourly rate (£)</label><input id="s_rate" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Contracted hrs/week</label><input id="s_chours" type="number" step="0.5"></div>
+        <div class="field"><label class="f">Unpaid break/shift (mins)</label><input id="s_break" type="number" step="5"></div>
+        <div class="field"><label class="f">Hours per holiday day</label><input id="s_hpd" type="number" step="0.5"></div>
+        <div class="field"><label class="f">Legal min wage (£)</label><input id="s_minwage" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Hours worked so far this year</label><input id="s_ytd" type="number" step="0.5"></div>
+      </div>
+      <h2 style="font-size:1rem;margin:16px 0 6px">Holiday figures (hours)</h2>
+      <div class="grid3">
+        <div class="field"><label class="f">Taken</label><input id="h_taken" type="number" step="0.1"></div>
+        <div class="field"><label class="f">Remaining to date</label><input id="h_remain" type="number" step="0.1"></div>
+        <div class="field"><label class="f">Future entitlement</label><input id="h_future" type="number" step="0.1"></div>
+        <div class="field"><label class="f">Future scheduled (booked)</label><input id="h_sched" type="number" step="0.1"></div>
+        <div class="field"><label class="f">Pending requested</label><input id="h_pending" type="number" step="0.1"></div>
+        <div class="field"><label class="f">Year-end balance</label><input id="h_yearend" type="number" step="0.1"></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn btn-g" onclick="applySettings()">✅ Apply changes</button>
+        <button class="btn btn-b" onclick="exportJSON()">⬇️ Export backup (JSON)</button>
+        <button class="btn btn-o" onclick="importJSON()">⬆️ Import backup</button>
+        <button class="btn btn-p" onclick="resetData()">↩️ Reset to defaults</button>
+      </div>
+    </details>
+  </div>
+
+  <p class="footnote">Data syncs to your Google Drive when connected. Tax / NI / pension are estimates — check your payslip for exact figures.</p>
+</div>
+
+<script>
+// ===== DEFAULT DATA =====
+const DEFAULTS = {
+  name:"Jose Batalha De Vasconcelos",
+  employer:"HICP Limited · Voco Southampton",
+  annualSalary:26436.80, hourlyRate:12.71, contractedHours:40,
+  breakMins:30, hoursPerHolidayDay:10, minWage:12.71, ytdHours:0,
+  taxAllowance:12570, taxRate:0.20, taxUpper:50270,
+  niThreshold:12570, niRate:0.08, pensionLower:6240, pensionRate:0.05,
+  roster:[
+    {day:"Monday",   start:"07:00", end:"19:30", status:""},
+    {day:"Tuesday",  start:"",      end:"",      status:"UNI"},
+    {day:"Wednesday",start:"",      end:"",      status:"UNI"},
+    {day:"Thursday", start:"",      end:"",      status:"UNI"},
+    {day:"Friday",   start:"07:00", end:"19:30", status:""},
+    {day:"Saturday", start:"07:00", end:"19:30", status:""},
+    {day:"Sunday",   start:"07:00", end:"19:30", status:""}
+  ],
+  holiday:{taken:0, remain:63.80, future:200.20, sched:100.00, pending:0, yearEnd:164.00},
+  booked:[
+    {from:"17-07-2026", to:"20-07-2026", type:"Holiday"},
+    {from:"24-07-2026", to:"27-07-2026", type:"Holiday"},
+    {from:"31-07-2026", to:"01-08-2026", type:"Holiday"}
+  ],
+  teamRota:{
+    dates:["Mon 29/06","Tue 30/06","Wed 01/07","Thu 02/07","Fri 03/07","Sat 04/07","Sun 05/07"],
+    checkIn:[71,60,34,77,105,97,22],
+    checkOut:[106,53,64,52,75,107,109],
+    cruise:["Aidaperla, Arcadia, Majestic Princess","","Aurora","","Britannia","Celebrity Apex, MSC Virtuosa","Arvia, Liberty of the Seas, Queen Anne"],
+    depts:[
+      {name:"RECEPTION", staff:[
+        {n:"Carly",   d:["07:00-15:30","07:00-15:30","07:00-15:30","ADMIN","07:00-15:30","OFF","OFF"]},
+        {n:"Karol",   d:["OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00","14:30-23:00"]},
+        {n:"Su",      d:["14:30-23:00","OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00"]},
+        {n:"Jose",    d:["07:00-19:30","UNI","UNI","UNI","07:00-19:30","07:00-19:30","07:00-19:30"]},
+        {n:"Ana",     d:["14:30-23:00","14:30-23:00","14:30-23:00","OFF","OFF","07:00-15:30","07:00-15:30"]},
+        {n:"Yasmina", d:["07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","OFF","OFF"]},
+        {n:"Jakub",   d:["OFF R","14:30-23:00","14:30-23:00","14:30-23:00","OFF R","07:00-15:30","07:00-15:30"]}
+      ]},
+      {name:"CONCIERGE", staff:[
+        {n:"Jo",   d:["OFF R","OFF R","Holiday","08:30-17:00","08:30-17:00","08:30-17:00","08:30-17:00"]},
+        {n:"Luis", d:["09:00-17:30","12:00-20:30","OFF","16:30-21:30","16:30-21:30","16:30-21:30","OFF"]}
+      ]},
+      {name:"NIGHTS", staff:[
+        {n:"Jamie",   d:["23:00-07:30","23:00-07:30","23:00-07:30","23:00-10:00","OFF","OFF","23:00-07:30"]},
+        {n:"Anthony", d:["23:00-07:30","23:00-07:30","OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30"]},
+        {n:"Dino",    d:["OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30","23:00-07:30","OFF"]}
+      ]}
+    ]
+  },
+  payslip:{
+    date:"26/06/2026", period:3, taxCode:"1257L", niCat:"A", empNo:"101022", rate:12.71, dayRate:127.11,
+    payments:[
+      ["SALARY",-0.10,2343.86],
+      ["DAYS CO SICK PAY",2033.70,3940.29],
+      ["NOR1",0.00,93.07],
+      ["HOLIDAYS TAKEN",0.00,305.05],
+      ["OTHERS",0.00,-409.05]
+    ],
+    paymentTotal:[2033.60,6273.22],
+    deductions:[
+      ["TAX",197.00,625.60],
+      ["NAT INSURANCE",78.85,250.34],
+      ["HSF",52.00,156.00],
+      ["WPR NEST PEN 1",60.54,188.52]
+    ],
+    deductionTotal:[388.39,1220.46],
+    taxablePay:[2033.60,6273.22],
+    employerNIC:[242.49,753.33],
+    employerPens:[45.41,141.40],
+    netPay:1645.21
+  }
+};
+
+let D = load();
+function load(){
+  try{ const s=localStorage.getItem("paydash"); if(s) return Object.assign(structuredClone(DEFAULTS), JSON.parse(s)); }catch(e){}
+  return structuredClone(DEFAULTS);
+}
+function persist(){ localStorage.setItem("paydash", JSON.stringify(D)); scheduleDriveSync(); }
+
+const gbp = n => "£"+ (Math.round(n*100)/100).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+const gbp0 = n => "£"+ Math.round(n).toLocaleString("en-GB");
+const money = n => (n<0?"−£":"£")+Math.abs(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+function shiftHours(s){
+  if(!s.start||!s.end) return 0;
+  const a=s.start.split(":").map(Number), b=s.end.split(":").map(Number);
+  let st=a[0]*60+a[1], en=b[0]*60+b[1];
+  if(en<=st) en+=1440;
+  return (en-st)/60;
+}
+function netHours(s){ if(s.status && s.status.trim()) return 0; const g=shiftHours(s); return g>0 ? g - D.breakMins/60 : 0; }
+function weeklyNet(){ return D.roster.reduce((t,s)=>t+netHours(s),0); }
+function cellNet(str){
+  const m=String(str).match(/(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})/);
+  if(!m) return 0;
+  let st=(+m[1])*60+(+m[2]), en=(+m[3])*60+(+m[4]);
+  if(en<=st) en+=1440;
+  return (en-st)/60 - D.breakMins/60;
+}
+function cellClass(str,dept){
+  const s=String(str).trim().toUpperCase();
+  if(s==="OFF"||s==="OFF R") return "c-off";
+  if(s==="UNI") return "c-uni";
+  if(s==="HOLIDAY") return "c-hol";
+  if(s==="ADMIN") return "c-admin";
+  if(/\d/.test(s)) return dept==="RECEPTION"?"c-rec":dept==="CONCIERGE"?"c-con":"c-night";
+  return "";
+}
+
+function takeHome(){
+  const g=D.annualSalary;
+  const tax=Math.max(0, Math.min(g,D.taxUpper)-D.taxAllowance)*D.taxRate;
+  const ni=Math.max(0, Math.min(g,D.taxUpper)-D.niThreshold)*D.niRate;
+  const pen=Math.max(0, Math.min(g,D.taxUpper)-D.pensionLower)*D.pensionRate;
+  return {g,tax,ni,pen,net:g-tax-ni-pen};
+}
+
+let weekChart,payChart,holChart;
+function render(){
+  document.querySelectorAll(".r1").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
+  document.querySelectorAll(".r2").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
+  document.getElementById("hpdLabel").textContent=D.hoursPerHolidayDay;
+  document.getElementById("brkLabel").textContent=D.breakMins;
+  document.getElementById("heroName").textContent=D.name.split(" ")[0]+"'s Pay & Hours Dashboard";
+  document.getElementById("heroSub").textContent=D.employer+" — pay effective 1 April 2026";
+  document.getElementById("heroPill").textContent="£"+D.hourlyRate.toFixed(2)+"/hr · "+gbp(D.annualSalary)+" / year";
+
+  const wkNet=weeklyNet(), th=takeHome(), remainVal=D.holiday.remain*D.hourlyRate;
+  const tiles=[
+    {c:"t-pink",  e:"⏱️", l:"This week (net hrs)", v:wkNet.toFixed(1)+"h", s:gbp(wkNet*D.hourlyRate)+" if all paid"},
+    {c:"t-purple",e:"💷", l:"Monthly (40h basis)", v:gbp0(D.annualSalary/12), s:"gross · "+gbp0(th.net/12)+" take-home"},
+    {c:"t-blue",  e:"📅", l:"Weekly income (40h)", v:gbp(D.annualSalary/52), s:"contracted"},
+    {c:"t-green", e:"🏖️", l:"Holiday remaining", v:(D.holiday.remain).toFixed(1)+"h", s:(D.holiday.remain/D.hoursPerHolidayDay).toFixed(1)+" days · "+gbp0(remainVal)},
+    {c:"t-orange",e:"📈", l:"Hours YTD", v:(D.ytdHours).toFixed(0)+"h", s:"of ~"+(D.contractedHours*52)+"h/yr contracted"},
+    {c:"t-teal",  e:"⚖️", l:"Hourly rate", v:"£"+D.hourlyRate.toFixed(2), s:(D.hourlyRate>=D.minWage?"≥ legal min":"BELOW min!")}
+  ];
+  document.getElementById("tiles").innerHTML=tiles.map(t=>
+    '<div class="tile '+t.c+'"><span class="emoji">'+t.e+'</span><div class="lbl">'+t.l+'</div><div class="val">'+t.v+'</div><div class="sub">'+t.s+'</div></div>').join("");
+
+  const tb=document.querySelector("#rosterTable tbody"); tb.innerHTML="";
+  D.roster.forEach((s,i)=>{
+    const n=netHours(s);
+    tb.innerHTML+='<tr><td class="daycell">'+s.day+'</td>'+
+      '<td><input type="time" value="'+s.start+'" onchange="setR('+i+",'start',this.value)\"></td>"+
+      '<td><input type="time" value="'+s.end+'" onchange="setR('+i+",'end',this.value)\"></td>"+
+      '<td><input type="text" value="'+s.status+'" placeholder="—" onchange="setR('+i+",'status',this.value.toUpperCase())\"></td>"+
+      '<td class="net">'+n.toFixed(1)+'h</td></tr>';
+  });
+  document.getElementById("weekNet").textContent=wkNet.toFixed(1)+"h";
+
+  document.getElementById("wkHours").textContent=wkNet.toFixed(1)+" h";
+  document.getElementById("wkValue").textContent=gbp(wkNet*D.hourlyRate);
+  document.getElementById("wkContract").textContent=gbp(D.annualSalary/52);
+  const extra=wkNet-D.contractedHours;
+  document.getElementById("otInsight").innerHTML = extra>0.1
+    ? "⚠️ This roster has <b>"+extra.toFixed(1)+"h above</b> your contracted "+D.contractedHours+"h. As a salaried worker these only pay extra if logged as <b>overtime</b> — worth checking against your payslip (≈ "+gbp(extra*D.hourlyRate)+" this week)."
+    : "✅ This week is within your contracted "+D.contractedHours+"h.";
+
+  document.getElementById("inWeek").textContent=gbp(D.annualSalary/52);
+  document.getElementById("inMonth").textContent=gbp(D.annualSalary/12);
+  document.getElementById("inYear").textContent=gbp(D.annualSalary);
+  document.getElementById("inTax").textContent="−"+gbp(th.tax);
+  document.getElementById("inNI").textContent="−"+gbp(th.ni);
+  document.getElementById("inPen").textContent="−"+gbp(th.pen);
+  document.getElementById("inNetMonth").textContent=gbp(th.net/12);
+  document.getElementById("inNetYear").textContent=gbp(th.net);
+
+  const effHr=D.annualSalary/52/D.contractedHours, margin=effHr-D.minWage;
+  const cls=margin<0?"bad":margin<0.01?"warn":"ok";
+  const word=margin<0?"BELOW the legal minimum":margin<0.01?"exactly the legal minimum":"above the legal minimum";
+  document.getElementById("mwBody").innerHTML=
+    '<span class="badge '+cls+'">'+word+'</span>'+
+    '<div class="kv" style="margin-top:10px"><span>Your effective rate (salary ÷ 52 ÷ '+D.contractedHours+'h)</span><span>£'+effHr.toFixed(2)+'/hr</span></div>'+
+    '<div class="kv"><span>Legal minimum (NLW, Apr 2026)</span><span>£'+D.minWage.toFixed(2)+'/hr</span></div>'+
+    '<div class="kv"><span>Your margin above minimum</span><span style="color:'+(margin<0.01?"#991b1b":"#166534")+'">£'+margin.toFixed(2)+'/hr</span></div>'+
+    '<div class="insight">Your salary is set to <b>£'+effHr.toFixed(2)+'/hr</b>, matching the National Living Wage almost exactly. If the minimum rises again your pay must rise too — but you currently have <b>no cushion above the legal floor</b>. Useful leverage at a pay review.</div>';
+
+  const h=D.holiday;
+  document.getElementById("hTaken").textContent=h.taken.toFixed(1)+" h ("+(h.taken/D.hoursPerHolidayDay).toFixed(1)+"d)";
+  document.getElementById("hRemain").textContent=h.remain.toFixed(1)+" h";
+  document.getElementById("hFuture").textContent=h.future.toFixed(1)+" h";
+  document.getElementById("hBooked").textContent=h.sched.toFixed(1)+" h ("+(h.sched/D.hoursPerHolidayDay).toFixed(1)+" days)";
+  document.getElementById("hPending").textContent=h.pending.toFixed(1)+" h";
+  document.getElementById("hYearEnd").innerHTML="<b>"+h.yearEnd.toFixed(1)+" h ("+(h.yearEnd/D.hoursPerHolidayDay).toFixed(1)+" days)</b>";
+  document.getElementById("hRemainVal").textContent=gbp(h.remain*D.hourlyRate);
+  document.getElementById("hBookedVal").textContent=gbp(h.sched*D.hourlyRate);
+  document.getElementById("bookedList").innerHTML=D.booked.map(b=>'<li><span>'+b.from+' → '+b.to+'</span><b>'+b.type+'</b></li>').join("") || "<li>None booked</li>";
+
+  renderTeam();
+  renderPayslip();
+  renderCharts(th);
+  syncSettingsInputs();
+}
+
+function renderTeam(){
+  const t=D.teamRota;
+  let h='<table class="trota"><thead><tr><th>Staff</th>';
+  t.dates.forEach(d=>h+='<th>'+d.replace(" ","<br>")+'</th>');
+  h+='<th class="tot">Total<br>Net Hrs</th></tr></thead><tbody>';
+  const info=(label,arr)=>{ let r='<tr class="info-row"><td class="name">'+label+'</td>'; arr.forEach(v=>r+='<td>'+v+'</td>'); r+='<td>—</td></tr>'; return r; };
+  h+=info("Check in",t.checkIn);
+  h+=info("Check out",t.checkOut);
+  t.depts.forEach(dep=>{
+    h+='<tr class="deptrow"><td colspan="9">'+dep.name+'</td></tr>';
+    dep.staff.forEach(st=>{
+      let tot=0;
+      const isJose=st.n.toLowerCase()==="jose";
+      h+='<tr class="'+(isJose?"row-jose":"")+'"><td class="name">'+st.n+'</td>';
+      st.d.forEach(cell=>{
+        const net=cellNet(cell); tot+=net;
+        h+='<td class="'+cellClass(cell,dep.name)+'">'+cell+(net>0?'<br><small>'+net.toFixed(1)+'h</small>':'')+'</td>';
+      });
+      h+='<td class="c-tot">'+tot.toFixed(1)+'h</td></tr>';
+    });
+  });
+  h+='</tbody></table>';
+  document.getElementById("teamRota").innerHTML=h;
+  const cr=t.cruise.map((c,i)=>c?("<b>"+t.dates[i].split(" ")[0]+"</b> "+c):null).filter(Boolean).join(" · ");
+  document.getElementById("cruiseLine").innerHTML="🚢 Cruise packages: "+cr;
+}
+
+function renderPayslip(){
+  const p=D.payslip;
+  document.getElementById("pslipSub").textContent="Payslip dated "+p.date+" (Tax Period "+p.period+"). Hourly rate then was £"+p.rate.toFixed(2)+"; your current rate is £"+D.hourlyRate.toFixed(2)+". Every line is explained on the right.";
+  document.getElementById("payslipHead").innerHTML=
+    '<span class="chip">📅 Pay date: '+p.date+'</span>'+
+    '<span class="chip">🗓️ Tax period: '+p.period+'</span>'+
+    '<span class="chip">🔖 Tax code: '+p.taxCode+'</span>'+
+    '<span class="chip">NI cat: '+p.niCat+'</span>'+
+    '<span class="chip">Employee #: '+p.empNo+'</span>';
+  const prow=a=>'<tr><td style="text-align:left">'+a[0]+'</td><td>'+money(a[1])+'</td><td>'+money(a[2])+'</td></tr>';
+  let pay='<table><thead><tr><th style="text-align:left">Payment</th><th>This period</th><th>Year to date</th></tr></thead><tbody>';
+  p.payments.forEach(a=>pay+=prow(a));
+  pay+='<tr style="font-weight:800;background:#f0fdf4"><td style="text-align:left">PAYMENT TOTAL (gross)</td><td>'+money(p.paymentTotal[0])+'</td><td>'+money(p.paymentTotal[1])+'</td></tr></tbody></table>';
+  document.getElementById("payPayments").innerHTML=pay;
+  let ded='<table><thead><tr><th style="text-align:left">Deduction</th><th>This period</th><th>Year to date</th></tr></thead><tbody>';
+  p.deductions.forEach(a=>ded+=prow(a));
+  ded+='<tr style="font-weight:800;background:#fef2f2"><td style="text-align:left">DEDUCTION TOTAL</td><td>'+money(p.deductionTotal[0])+'</td><td>'+money(p.deductionTotal[1])+'</td></tr></tbody></table>';
+  document.getElementById("payDeductions").innerHTML=ded;
+  document.getElementById("paySummary").innerHTML=
+    '<div class="kv"><span>Taxable pay (this period)</span><span>'+money(p.taxablePay[0])+'</span></div>'+
+    '<div class="kv"><span>Total deductions</span><span style="color:#991b1b">−'+money(p.deductionTotal[0])+'</span></div>'+
+    '<div class="kv" style="border:none"><span><b>NET PAY (to your bank)</b></span><span class="netbig">'+money(p.netPay)+'</span></div>'+
+    '<div class="insight" style="background:#eef2ff;border-color:#6d28d9">Paid by your employer <b>on top</b> of your wage (not taken from you): Employer NI '+money(p.employerNIC[0])+', Employer pension '+money(p.employerPens[0])+'.</div>';
+}
+
+function renderCharts(th){
+  const weekPay=D.annualSalary/52;
+  if(weekChart) weekChart.destroy();
+  weekChart=new Chart(document.getElementById("weekChart"),{type:"bar",
+    data:{labels:["Wk 1","Wk 2","Wk 3","Wk 4","Wk 5"],datasets:[{label:"Weekly pay (£)",
+      data:[weekPay,weekPay,weekPay,weekPay,weekPay],backgroundColor:["#ff6ec7","#8b5cf6","#4f9cff","#2dd4bf","#ffb347"],borderRadius:8}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"£"+v}}},maintainAspectRatio:false}});
+
+  if(payChart) payChart.destroy();
+  payChart=new Chart(document.getElementById("payChart"),{type:"doughnut",
+    data:{labels:["Take-home","Income Tax","Nat. Insurance","Pension"],datasets:[{data:[th.net,th.tax,th.ni,th.pen],
+      backgroundColor:["#22c55e","#ff3d77","#ffb347","#8b5cf6"],borderWidth:0}]},
+    options:{cutout:"62%",plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.label+": "+gbp(c.parsed)}}},maintainAspectRatio:false}});
+
+  const h=D.holiday;
+  if(holChart) holChart.destroy();
+  holChart=new Chart(document.getElementById("holChart"),{type:"doughnut",
+    data:{labels:["Taken","Booked","Pending","Remaining (yr-end)"],datasets:[{data:[h.taken,h.sched,h.pending,Math.max(0,h.yearEnd)],
+      backgroundColor:["#6b7280","#4f9cff","#ffb347","#22c55e"],borderWidth:0}]},
+    options:{cutout:"60%",plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.label+": "+c.parsed.toFixed(1)+"h"}}},maintainAspectRatio:false}});
+}
+
+function setR(i,k,v){ D.roster[i][k]=v; persist(); render(); }
+function saveAll(){ persist(); flash("Roster saved ✓"); }
+function logWeek(){ D.ytdHours += weeklyNet(); persist(); render(); flash("Added "+weeklyNet().toFixed(1)+"h to YTD ✓"); }
+
+function syncSettingsInputs(){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.value=v;};
+  set("s_name",D.name); set("s_emp",D.employer); set("s_salary",D.annualSalary);
+  set("s_rate",D.hourlyRate); set("s_chours",D.contractedHours); set("s_break",D.breakMins);
+  set("s_hpd",D.hoursPerHolidayDay); set("s_minwage",D.minWage); set("s_ytd",D.ytdHours);
+  set("h_taken",D.holiday.taken); set("h_remain",D.holiday.remain); set("h_future",D.holiday.future);
+  set("h_sched",D.holiday.sched); set("h_pending",D.holiday.pending); set("h_yearend",D.holiday.yearEnd);
+}
+function applySettings(){
+  const num=id=>parseFloat(document.getElementById(id).value)||0;
+  D.name=document.getElementById("s_name").value||D.name;
+  D.employer=document.getElementById("s_emp").value||D.employer;
+  D.annualSalary=num("s_salary"); D.hourlyRate=num("s_rate"); D.contractedHours=num("s_chours");
+  D.breakMins=num("s_break"); D.hoursPerHolidayDay=num("s_hpd")||10; D.minWage=num("s_minwage"); D.ytdHours=num("s_ytd");
+  D.holiday={taken:num("h_taken"),remain:num("h_remain"),future:num("h_future"),sched:num("h_sched"),pending:num("h_pending"),yearEnd:num("h_yearend")};
+  persist(); render(); flash("Changes applied ✓");
+}
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(D,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="PayDashboard_backup_"+new Date().toISOString().slice(0,10)+".json"; a.click();
+}
+function importJSON(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
+  inp.onchange=e=>{const r=new FileReader(); r.onload=ev=>{try{D=Object.assign(structuredClone(DEFAULTS),JSON.parse(ev.target.result));persist();render();flash("Backup imported ✓");}catch{alert("Invalid file");}}; r.readAsText(e.target.files[0]);};
+  inp.click();
+}
+function resetData(){ if(confirm("Reset everything to the original figures?")){ D=structuredClone(DEFAULTS); persist(); render(); } }
+
+function flash(msg){
+  const d=document.createElement("div"); d.textContent=msg;
+  d.style.cssText="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#22c55e;color:#fff;padding:12px 20px;border-radius:12px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:9999";
+  document.body.appendChild(d); setTimeout(()=>d.remove(),1800);
+}
+
+// ===== PDF PAYSLIP IMPORT =====
+let prevPayslip=null;
+async function importPayslipPDF(){
+  const fEl=document.getElementById('payPdf');
+  if(!fEl.files[0]){ alert('Choose a PDF payslip first.'); return; }
+  if(!window.pdfjsLib){ alert('PDF reader still loading — please try again in a moment.'); return; }
+  if(!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  try{
+    const buf=await fEl.files[0].arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let text='';
+    for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
+    const parsed=parsePayslip(text);
+    if(!parsed){ alert('Sorry — could not read this payslip layout. Is it a 4 HICP Limited payslip PDF?'); return; }
+    prevPayslip=JSON.parse(JSON.stringify(D.payslip));
+    D.payslip=parsed; persist(); render();
+    const note=document.getElementById('payImportNote'); if(note) note.style.display='block';
+    flash('Payslip imported ✓ — please verify');
+  }catch(e){ alert('Could not read PDF: '+(e.message||e)); }
+}
+function undoImport(){ if(prevPayslip){ D.payslip=prevPayslip; prevPayslip=null; persist(); render(); const n=document.getElementById('payImportNote'); if(n) n.style.display='none'; flash('Import undone'); } }
+
+function parsePayslip(t){
+  t=t.replace(/\s+/g,' ');
+  const num=s=>{ if(s==null) return 0; s=String(s).trim(); const neg=s.endsWith('-'); s=s.replace(/,/g,'').replace(/-/g,''); const v=parseFloat(s); return isNaN(v)?0:(neg?-v:v); };
+  const N='(-?[\\d,]+\\.\\d{2}-?)';
+  const dm=t.match(/Payment\s+Advice\s+(\d{2})\/(\d{2})\/(\d{2,4})/i);
+  if(!dm) return null;
+  let yr=dm[3]; if(yr.length===2) yr='20'+yr;
+  const date=dm[1]+'/'+dm[2]+'/'+yr;
+  const g=(re,i)=>{ const m=t.match(re); return m?m[i]:''; };
+  const period=parseInt(g(/Tax\s+Period\s+(\d+)/i,1)||'0',10);
+  const taxCode=g(/Tax\s*Code\s+(\d+[A-Z])/i,1)||'1257L';
+  const niCat=g(/N\.?\s*I\.?\s*Category\s+([A-Z])/i,1)||'A';
+  const empNo=g(/Employee\s*No\.?\s+(\d+)/i,1)||'';
+  const two=lab=>{ const m=t.match(new RegExp(lab+'\\s+'+N+'\\s+'+N,'i')); return m?[num(m[1]),num(m[2])]:[0,0]; };
+  const taxablePay=two('Taxable\\s+Pay');
+  const employerNIC=two('Employers?\\s+NIC');
+  const employerPens=two('Employers?\\s+Pens');
+  const paymentTotal=two('PAYMENT\\s+TOTAL');
+  const deductionTotal=two('DEDUCTION\\s+TOTAL');
+  const netPay=num((t.match(/BANK\s+(-?[\d,]+\.\d{2}-?)/i)||[])[1]);
+  const rate=D.hourlyRate;
+  const dayRate=Math.round(rate*D.hoursPerHolidayDay*100)/100;
+  const payLabels=['SALARY','DAYS CO SICK PAY','DYS-UNPAID SICK','DAYS UNPAID SICK','LEISUR CLB UPSEL','HRS-O/TIME','PAY-BACK PAY','PAY-TMOTM','PAY HOLS & LIEU','LIEU DAYS TAKEN','HOLIDAYS TAKEN','ENHANCE HOL RATE','NOR1','OTHERS'];
+  const dedLabels=['TAX','NAT INSURANCE','HSF','WPR NEST PEN 1','STUDENT LOAN','COURT ORDER'];
+  let region=t.slice(Math.max(0,t.search(/Pay\s*Item/i)));
+  const pe=region.search(/PAYMENT\s+TOTAL/i); if(pe>0) region=region.slice(0,pe);
+  const found=[];
+  payLabels.concat(dedLabels).forEach(lab=>{ const idx=region.indexOf(lab); if(idx>=0) found.push({lab:lab,idx:idx}); });
+  found.sort((a,b)=>a.idx-b.idx);
+  const payments=[],deductions=[];
+  found.forEach((f,k)=>{
+    const segEnd=k+1<found.length?found[k+1].idx:region.length;
+    const seg=region.slice(f.idx+f.lab.length,segEnd);
+    const nums=seg.match(/-?[\d,]+\.\d{2}-?/g)||[];
+    let tp=0,td=0;
+    if(nums.length>=2){ tp=num(nums[nums.length-2]); td=num(nums[nums.length-1]); }
+    else if(nums.length===1){ tp=num(nums[0]); }
+    (dedLabels.indexOf(f.lab)>=0?deductions:payments).push([f.lab,tp,td]);
+  });
+  if(!payments.length && !deductions.length) return null;
+  return {date:date,period:period,taxCode:taxCode,niCat:niCat,empNo:empNo,rate:rate,dayRate:dayRate,
+    payments:payments,paymentTotal:paymentTotal,deductions:deductions,deductionTotal:deductionTotal,
+    taxablePay:taxablePay,employerNIC:employerNIC,employerPens:employerPens,netPay:netPay};
+}
+
+// ================= GOOGLE DRIVE AUTO-SYNC =================
+const DRIVE = {
+  CLIENT_ID: "594506764651-qe5pdm83q9l7ukv0cg3cb00jehqtmlkk.apps.googleusercontent.com",
+  FOLDER_ID: "1X_tjvd33STK4lCvSRb9CfEnXB3KAodk7",
+  FILE_NAME: "PayDashboard.json",
+  SCOPE: "https://www.googleapis.com/auth/drive.file",
+  token:null, fileId:null, tokenClient:null
+};
+let driveTimer=null;
+const driveConfigured = () => DRIVE.CLIENT_ID && !DRIVE.CLIENT_ID.startsWith("PASTE_");
+function driveDot(c,t){ const d=document.getElementById("driveDot"),s=document.getElementById("driveStatus"); if(d)d.style.background=c; if(s)s.textContent=t; }
+const driveHeader = () => ({Authorization:"Bearer "+DRIVE.token});
+
+function driveInit(){
+  if(!driveConfigured()){ document.getElementById("driveSetup").style.display="block"; driveDot("#cbd5e1","Google Drive: needs setup — add your Client ID"); return; }
+  if(location.protocol==="file:"){ document.getElementById("driveSetup").style.display="block"; driveDot("#ef4444","Google Drive: open via your https:// URL, not the local file"); return; }
+  if(!window.google||!google.accounts||!google.accounts.oauth2){ setTimeout(driveInit,400); return; }
+  DRIVE.tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE.CLIENT_ID, scope:DRIVE.SCOPE,
+    callback:resp=>{ if(resp&&resp.access_token){ DRIVE.token=resp.access_token; afterAuth(); } }
+  });
+  driveDot("#fbbf24","Google Drive: ready — click Connect to Drive");
+}
+function driveConnect(){
+  if(!driveConfigured()||location.protocol==="file:"){ document.getElementById("driveSetup").style.display="block"; return; }
+  if(!DRIVE.tokenClient){ driveInit(); return; }
+  DRIVE.tokenClient.requestAccessToken({prompt: DRIVE.token ? "" : "consent"});
+}
+async function afterAuth(){
+  driveDot("#22c55e","Google Drive: connected — syncing…");
+  try{
+    const id=await driveFind();
+    if(id){
+      DRIVE.fileId=id;
+      const data=await driveDownload(id);
+      if(data && typeof data==="object"){ D=Object.assign(structuredClone(DEFAULTS),data); localStorage.setItem("paydash",JSON.stringify(D)); render(); }
+      driveDot("#22c55e","Google Drive: connected ✓ — loaded latest"); flash("Loaded from Google Drive ✓");
+    } else {
+      await driveSave();
+      driveDot("#22c55e","Google Drive: connected ✓ — new file created"); flash("Created backup in Google Drive ✓");
+    }
+  }catch(e){ driveDot("#ef4444","Google Drive: "+(e.message||e)); }
+}
+async function driveFind(){
+  const q="name='"+DRIVE.FILE_NAME+"' and '"+DRIVE.FOLDER_ID+"' in parents and trashed=false";
+  const r=await fetch("https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id,name)&q="+encodeURIComponent(q),{headers:driveHeader()});
+  if(r.status===401){ DRIVE.token=null; throw new Error("session expired — click Connect"); }
+  const j=await r.json(); return (j.files&&j.files[0])?j.files[0].id:null;
+}
+async function driveDownload(id){
+  const r=await fetch("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media",{headers:driveHeader()});
+  if(!r.ok) throw new Error("download failed ("+r.status+")");
+  return await r.json();
+}
+async function driveSave(){
+  if(!DRIVE.token) return;
+  const body=JSON.stringify(D,null,2);
+  if(!DRIVE.fileId) DRIVE.fileId=await driveFind();
+  if(DRIVE.fileId){
+    const r=await fetch("https://www.googleapis.com/upload/drive/v3/files/"+DRIVE.fileId+"?uploadType=media",
+      {method:"PATCH",headers:Object.assign(driveHeader(),{"Content-Type":"application/json"}),body});
+    if(r.status===401){ DRIVE.token=null; throw new Error("session expired — click Connect"); }
+  } else {
+    const meta={name:DRIVE.FILE_NAME,parents:[DRIVE.FOLDER_ID]};
+    const b="paydash"+Date.now();
+    const mp="--"+b+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(meta)+"\r\n--"+b+"\r\nContent-Type: application/json\r\n\r\n"+body+"\r\n--"+b+"--";
+    const r=await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+      {method:"POST",headers:Object.assign(driveHeader(),{"Content-Type":"multipart/related; boundary="+b}),body:mp});
+    const j=await r.json(); DRIVE.fileId=j.id;
+  }
+}
+function scheduleDriveSync(){
+  if(typeof DRIVE==="undefined" || !DRIVE.token) return;
+  clearTimeout(driveTimer);
+  driveTimer=setTimeout(()=>{ driveSave()
+    .then(()=>driveDot("#22c55e","Google Drive: saved ✓ "+new Date().toLocaleTimeString()))
+    .catch(e=>driveDot("#ef4444","Google Drive: "+(e.message||e))); },1500);
+}
+async function driveSaveNow(){
+  if(!DRIVE.token){ driveConnect(); return; }
+  try{ await driveSave(); driveDot("#22c55e","Google Drive: saved ✓ "+new Date().toLocaleTimeString()); flash("Synced to Google Drive ✓"); }
+  catch(e){ driveDot("#ef4444","Google Drive: "+(e.message||e)); }
+}
+
+render();
+driveInit();
+</script>
+</body>
+</html>
