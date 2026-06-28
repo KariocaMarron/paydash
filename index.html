@@ -219,7 +219,7 @@
   <div class="panel">
     <h2>📄 Latest payslip — full breakdown</h2>
     <p class="hint" id="pslipSub">Most recent payslip on file. Every line is explained below.</p>
-    <div class="btnrow" style="margin-bottom:12px"><input type="file" id="payPdf" accept="application/pdf" style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importPayslipPDF()">📤 Import payslip PDF</button></div><div id="payImportNote" class="insight" style="display:none">⚠️ Imported automatically from your PDF — please check the figures against the paper payslip. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoImport()">Undo import</button></div>
+    <div class="btnrow" style="margin-bottom:12px"><input type="file" id="payPdf" accept="application/pdf" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importPayslipPDF()">📤 Import payslip PDF</button></div><div id="payImportNote" class="insight" style="display:none">⚠️ Imported automatically from your PDF — please check the figures against the paper payslip. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoImport()">Undo import</button></div>
       <div class="chips" id="payslipHead"></div>
     <div class="grid2">
       <div>
@@ -254,6 +254,20 @@
         </ul>
       </div>
     </div>
+  </div>
+
+  <!-- PAYSLIP HISTORY & TRENDS -->
+  <div class="panel">
+    <h2>📈 Payslip history &amp; trends</h2>
+    <p class="hint">Each payslip you import is saved here. Tip: in the import above you can select several PDFs at once to build your history in one go.</p>
+    <div class="tiles" id="ytdTiles" style="margin-top:0"></div>
+    <div class="grid2" style="margin-top:16px">
+      <div><div class="chartbox"><canvas id="histChart"></canvas></div></div>
+      <div class="scrollx"><div id="histTable"></div></div>
+    </div>
+    <h2 style="font-size:1rem;margin:18px 0 4px">📊 Expected vs actual (gross per payslip)</h2>
+    <p class="hint" id="evaSub">Compares each payslip's actual gross pay against your contracted monthly pay.</p>
+    <div class="chartbox"><canvas id="evaChart"></canvas></div>
   </div>
 
   <!-- SETTINGS -->
@@ -371,7 +385,7 @@ function takeHome(){
   return {g,tax,ni,pen,net:g-tax-ni-pen};
 }
 
-let weekChart,payChart,holChart;
+let weekChart,payChart,holChart,histChart,evaChart;
 function render(){
   document.querySelectorAll(".r1").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
   document.querySelectorAll(".r2").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
@@ -444,6 +458,7 @@ function render(){
 
   renderTeam();
   renderPayslip();
+  renderHistory();
   renderCharts(th);
   syncSettingsInputs();
 }
@@ -498,6 +513,62 @@ function renderPayslip(){
     '<div class="kv"><span>Total deductions</span><span style="color:#991b1b">−'+money(p.deductionTotal[0])+'</span></div>'+
     '<div class="kv" style="border:none"><span><b>NET PAY (to your bank)</b></span><span class="netbig">'+money(p.netPay)+'</span></div>'+
     '<div class="insight" style="background:#eef2ff;border-color:#6d28d9">Paid by your employer <b>on top</b> of your wage (not taken from you): Employer NI '+money(p.employerNIC[0])+', Employer pension '+money(p.employerPens[0])+'.</div>';
+}
+
+function psDate(d){ const m=String(d).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0; }
+function psDed(p,key){ const r=(p.deductions||[]).find(x=>String(x[0]).indexOf(key)>=0); return r?r:[key,0,0]; }
+function renderHistory(){
+  const list=(D.payslips||[]).slice().sort((a,b)=>psDate(a.date)-psDate(b.date));
+  const tilesEl=document.getElementById("ytdTiles"), tblEl=document.getElementById("histTable");
+  if(!tilesEl||!tblEl) return;
+  if(!list.length){
+    tilesEl.innerHTML="";
+    tblEl.innerHTML='<p class="hint">No payslips saved yet. Use the “Import payslip PDF” button above — you can select several PDFs at once.</p>';
+    if(histChart){ histChart.destroy(); histChart=null; }
+    if(evaChart){ evaChart.destroy(); evaChart=null; }
+    return;
+  }
+  const latest=list[list.length-1];
+  const taxYTD=psDed(latest,"TAX")[2], niYTD=psDed(latest,"NAT INSURANCE")[2], penYTD=psDed(latest,"WPR NEST")[2];
+  const taxableYTD=(latest.taxablePay&&latest.taxablePay[1])||0;
+  const netYTD=taxableYTD-taxYTD-niYTD-penYTD;
+  const cards=[
+    {c:"t-green", e:"💰", l:"Earned YTD (taxable)", v:gbp0(taxableYTD), s:"tax year, to "+latest.date},
+    {c:"t-pink",  e:"🏛️", l:"Income Tax YTD", v:gbp0(taxYTD), s:""},
+    {c:"t-orange",e:"🛡️", l:"NI YTD", v:gbp0(niYTD), s:""},
+    {c:"t-purple",e:"🐷", l:"Pension YTD", v:gbp0(penYTD), s:"into NEST"},
+    {c:"t-blue",  e:"🏦", l:"Take-home YTD", v:gbp0(netYTD), s:"approx"}
+  ];
+  tilesEl.innerHTML=cards.map(t=>'<div class="tile '+t.c+'"><span class="emoji">'+t.e+'</span><div class="lbl">'+t.l+'</div><div class="val">'+t.v+'</div><div class="sub">'+t.s+'</div></div>').join("");
+  const expected=D.annualSalary/12;
+  let h='<table><thead><tr><th style="text-align:left">Payslip</th><th>Gross</th><th>Net</th><th>Tax</th><th>NI</th><th>Pension</th><th>vs exp.</th></tr></thead><tbody>';
+  list.slice().reverse().forEach(p=>{
+    var gr=p.paymentTotal?p.paymentTotal[0]:0, dv=gr-expected;
+    h+='<tr><td style="text-align:left">'+p.date+'</td><td>'+gbp(gr)+'</td><td>'+gbp(p.netPay||0)+'</td><td>'+gbp(psDed(p,"TAX")[1])+'</td><td>'+gbp(psDed(p,"NAT INSURANCE")[1])+'</td><td>'+gbp(psDed(p,"WPR NEST")[1])+'</td><td style="font-weight:700;color:'+(dv>=0?"#166534":"#991b1b")+'">'+(dv>=0?"+":"")+money(dv)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  tblEl.innerHTML=h;
+  const labels=list.map(p=>String(p.date).slice(0,5));
+  const net=list.map(p=>p.netPay||0);
+  const gross=list.map(p=>p.paymentTotal?p.paymentTotal[0]:0);
+  if(histChart) histChart.destroy();
+  histChart=new Chart(document.getElementById("histChart"),{type:"line",
+    data:{labels:labels,datasets:[
+      {label:"Net pay",data:net,borderColor:"#22c55e",backgroundColor:"rgba(34,197,94,.15)",fill:true,tension:.3},
+      {label:"Gross pay",data:gross,borderColor:"#8b5cf6",backgroundColor:"rgba(139,92,246,.10)",fill:true,tension:.3}
+    ]},
+    options:{plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+gbp(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>"£"+v}}},maintainAspectRatio:false}});
+
+  const expArr=list.map(()=>D.annualSalary/12);
+  const es=document.getElementById("evaSub");
+  if(es) es.textContent="Blue = what each payslip actually paid (gross); orange = your current contracted monthly pay of "+gbp(D.annualSalary/12)+". Below orange = a short month (e.g. sick/unpaid); above = overtime/extras.";
+  if(evaChart) evaChart.destroy();
+  evaChart=new Chart(document.getElementById("evaChart"),{type:"bar",
+    data:{labels:labels,datasets:[
+      {label:"Actual gross",data:gross,backgroundColor:"#4f9cff",borderRadius:6},
+      {label:"Expected (contracted)",data:expArr,backgroundColor:"#ffb347",borderRadius:6}
+    ]},
+    options:{plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+gbp(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>"£"+v}}},maintainAspectRatio:false}});
 }
 
 function renderCharts(th){
@@ -562,26 +633,36 @@ function flash(msg){
 }
 
 // ===== PDF PAYSLIP IMPORT =====
-let prevPayslip=null;
+let prevData=null;
 async function importPayslipPDF(){
   const fEl=document.getElementById('payPdf');
-  if(!fEl.files[0]){ alert('Choose a PDF payslip first.'); return; }
+  const files=fEl.files;
+  if(!files||!files.length){ alert('Choose one or more PDF payslips first.'); return; }
   if(!window.pdfjsLib){ alert('PDF reader still loading — please try again in a moment.'); return; }
   if(!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  try{
-    const buf=await fEl.files[0].arrayBuffer();
-    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    let text='';
-    for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
-    const parsed=parsePayslip(text);
-    if(!parsed){ alert('Sorry — could not read this payslip layout. Is it a 4 HICP Limited payslip PDF?'); return; }
-    prevPayslip=JSON.parse(JSON.stringify(D.payslip));
-    D.payslip=parsed; persist(); render();
-    const note=document.getElementById('payImportNote'); if(note) note.style.display='block';
-    flash('Payslip imported ✓ — please verify');
-  }catch(e){ alert('Could not read PDF: '+(e.message||e)); }
+  prevData=JSON.parse(JSON.stringify({payslip:D.payslip,payslips:D.payslips||[]}));
+  D.payslips=D.payslips||[];
+  let ok=0,fail=0;
+  for(const f of files){
+    try{
+      const buf=await f.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      let text='';
+      for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
+      const parsed=parsePayslip(text);
+      if(!parsed){ fail++; continue; }
+      const ix=D.payslips.findIndex(x=>x.date===parsed.date);
+      if(ix>=0) D.payslips[ix]=parsed; else D.payslips.push(parsed);
+      ok++;
+    }catch(e){ fail++; }
+  }
+  D.payslips.sort((a,b)=>psDate(a.date)-psDate(b.date));
+  if(D.payslips.length) D.payslip=D.payslips[D.payslips.length-1];
+  persist(); render();
+  const note=document.getElementById('payImportNote'); if(note) note.style.display='block';
+  flash(ok+' payslip'+(ok!==1?'s':'')+' imported'+(fail?(' · '+fail+' skipped'):'')+' ✓');
 }
-function undoImport(){ if(prevPayslip){ D.payslip=prevPayslip; prevPayslip=null; persist(); render(); const n=document.getElementById('payImportNote'); if(n) n.style.display='none'; flash('Import undone'); } }
+function undoImport(){ if(prevData){ D.payslip=prevData.payslip; D.payslips=prevData.payslips; prevData=null; persist(); render(); const n=document.getElementById('payImportNote'); if(n) n.style.display='none'; flash('Import undone'); } }
 
 function parsePayslip(t){
   t=t.replace(/\s+/g,' ');
