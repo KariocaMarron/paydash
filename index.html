@@ -204,12 +204,14 @@
         <div class="kv"><span>Future entitlement</span><span id="hFuture">200.2 h</span></div>
         <div class="kv"><span>Booked / scheduled</span><span id="hBooked">100 h (10 days)</span></div>
         <div class="kv"><span>Pending requests</span><span id="hPending">0 h</span></div>
+        <div class="kv"><span>Accrued to date (12.07% of hours worked)</span><span id="hAccrued">0 h</span></div>
         <div class="kv"><span><b>Year-end balance</b></span><span id="hYearEnd"><b>164 h (16.4 days)</b></span></div>
         <div class="kv" style="border-bottom:none"><span>💰 Remaining holiday value</span><span id="hRemainVal" style="color:#22c55e">£0</span></div>
         <div class="kv"><span>💰 Booked holiday value</span><span id="hBookedVal">£0</span></div>
         <h2 style="font-size:1rem;margin:14px 0 6px">📌 Booked dates</h2>
         <ul class="booked" id="bookedList"></ul>
         <p class="hint">Lieu balance: <b id="lieuBal">0 h</b> (no lieu currently recorded).</p>
+        <div class="insight" id="accrualInsight"></div>
       </div>
       <div><div class="chartbox"><canvas id="holChart"></canvas></div></div>
     </div>
@@ -220,6 +222,28 @@
     <h2>📄 Latest payslip — full breakdown</h2>
     <p class="hint" id="pslipSub">Most recent payslip on file. Every line is explained below.</p>
     <div class="btnrow" style="margin-bottom:12px"><input type="file" id="payPdf" accept="application/pdf" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importPayslipPDF()">📤 Import payslip PDF</button></div><div id="payImportNote" class="insight" style="display:none">⚠️ Imported automatically from your PDF — please check the figures against the paper payslip. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoImport()">Undo import</button></div>
+    <details class="settings" style="margin-bottom:12px">
+      <summary>✏️ Enter a payslip manually (if a PDF won’t import)</summary>
+      <div class="grid3" style="margin-top:12px">
+        <div class="field"><label class="f">Pay date (DD/MM/YYYY)</label><input id="m_date" placeholder="25/06/2026"></div>
+        <div class="field"><label class="f">Tax period (1–12)</label><input id="m_period" type="number" step="1"></div>
+        <div class="field"><label class="f">Tax code</label><input id="m_code" placeholder="1257L"></div>
+        <div class="field"><label class="f">NI category</label><input id="m_nicat" placeholder="A"></div>
+        <div class="field"><label class="f">Gross — this period (£)</label><input id="m_gross" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Gross — year to date (£)</label><input id="m_grossY" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Taxable pay — this period (£)</label><input id="m_taxpay" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Taxable pay — YTD (£)</label><input id="m_taxpayY" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Income Tax — this period (£)</label><input id="m_tax" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Income Tax — YTD (£)</label><input id="m_taxY" type="number" step="0.01"></div>
+        <div class="field"><label class="f">National Insurance — this period (£)</label><input id="m_ni" type="number" step="0.01"></div>
+        <div class="field"><label class="f">National Insurance — YTD (£)</label><input id="m_niY" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Pension (NEST) — this period (£)</label><input id="m_pen" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Pension (NEST) — YTD (£)</label><input id="m_penY" type="number" step="0.01"></div>
+        <div class="field"><label class="f">Net pay — to bank (£)</label><input id="m_net" type="number" step="0.01"></div>
+      </div>
+      <div class="btnrow"><button class="btn btn-g" onclick="saveManualPayslip()">💾 Save payslip</button></div>
+      <p class="hint">Copy the figures straight off your paper or PDF payslip. The “year to date” columns are what power the tax check and history trends.</p>
+    </details>
       <div class="chips" id="payslipHead"></div>
     <div class="grid2">
       <div>
@@ -270,6 +294,26 @@
     <div class="chartbox"><canvas id="evaChart"></canvas></div>
   </div>
 
+  <!-- PAYE RECONCILIATION -->
+  <div class="panel">
+    <h2>🔍 PAYE tax check &mdash; is your tax right?</h2>
+    <p class="hint">Uses your most recent payslip's year-to-date figures and HMRC's cumulative method to check whether the Income Tax taken so far matches what your tax code says it should be. Import a payslip above to activate.</p>
+    <div id="reconBody"></div>
+  </div>
+
+  <!-- P60 ANNUAL SUMMARIES -->
+  <div class="panel">
+    <h2>🧾 P60 — annual summaries</h2>
+    <p class="hint">Upload your year-end P60 PDFs (you can select several at once). Each shows a whole tax year's total pay, Income Tax and National Insurance.</p>
+    <div class="btnrow" style="margin-bottom:12px">
+      <input type="file" id="p60Pdf" accept="application/pdf" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px">
+      <button class="btn btn-b" onclick="importP60PDF()">📤 Import P60 PDF</button>
+    </div>
+    <div id="p60Note" class="insight" style="display:none">⚠️ Imported from your PDF — please check against the paper P60. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoP60()">Undo</button></div>
+    <div class="scrollx" id="p60Table"></div>
+    <div class="chartbox" style="margin-top:16px"><canvas id="p60Chart"></canvas></div>
+  </div>
+
   <!-- SETTINGS -->
   <div class="panel">
     <details class="settings">
@@ -284,6 +328,7 @@
         <div class="field"><label class="f">Hours per holiday day</label><input id="s_hpd" type="number" step="0.5"></div>
         <div class="field"><label class="f">Legal min wage (£)</label><input id="s_minwage" type="number" step="0.01"></div>
         <div class="field"><label class="f">Hours worked so far this year</label><input id="s_ytd" type="number" step="0.5"></div>
+        <div class="field"><label class="f">Holiday accrual rate (e.g. 0.1207)</label><input id="s_accrual" type="number" step="0.0001"></div>
       </div>
       <h2 style="font-size:1rem;margin:16px 0 6px">Holiday figures (hours)</h2>
       <div class="grid3">
@@ -312,9 +357,12 @@ const DEFAULTS = {
   name:"Your name",
   employer:"Your workplace",
   annualSalary:26436.80, hourlyRate:12.71, contractedHours:40,
-  breakMins:30, hoursPerHolidayDay:10, minWage:12.71, ytdHours:0,
+  breakMins:30, hoursPerHolidayDay:10, minWage:12.71, ytdHours:0, rateByYear:{"2024":11.44,"2025":12.21,"2026":12.71}, p60s:[],
   taxAllowance:12570, taxRate:0.20, taxUpper:50270,
-  niThreshold:12570, niRate:0.08, pensionLower:6240, pensionRate:0.05,
+  taxHigher:125140, taxHigherRate:0.40, taxAddRate:0.45,
+  niThreshold:12570, niRate:0.08, niUpper:50270, niUpperRate:0.02,
+  pensionLower:6240, pensionRate:0.05, pensionUpper:50270,
+  accrualRate:0.1207,
   roster:[
     {day:"Monday",   start:"09:00", end:"17:00", status:""},
     {day:"Tuesday",  start:"09:00", end:"17:00", status:""},
@@ -377,15 +425,49 @@ function cellClass(str,dept){
   return "";
 }
 
+function bandedIncomeTax(g, allowance){
+  let pa = (allowance!=null?allowance:D.taxAllowance);
+  if(g>100000) pa=Math.max(0, pa-(g-100000)/2);     // personal-allowance taper
+  const taxable=Math.max(0,g-pa);
+  const basicBand =Math.max(0, D.taxUpper - D.taxAllowance);   // width of 20% band
+  const higherBand=Math.max(0, D.taxHigher - D.taxUpper);      // width of 40% band
+  let tax=0;
+  tax+=Math.min(taxable,basicBand)*D.taxRate;
+  if(taxable>basicBand) tax+=Math.min(taxable-basicBand,higherBand)*D.taxHigherRate;
+  if(taxable>basicBand+higherBand) tax+=(taxable-basicBand-higherBand)*D.taxAddRate;
+  return tax;
+}
+function annualNI(g){
+  let ni=Math.max(0, Math.min(g,D.niUpper)-D.niThreshold)*D.niRate;
+  if(g>D.niUpper) ni+=(g-D.niUpper)*D.niUpperRate;     // 2% above upper earnings limit
+  return ni;
+}
+// HMRC cumulative PAYE: tax due by tax period N, thresholds pro-rated N/12
+function cumulativeTaxDue(taxableYTD, period, allowance){
+  const f=Math.max(0,Math.min(12,period))/12;
+  const pa=(allowance!=null?allowance:D.taxAllowance)*f;
+  const taxable=Math.max(0,taxableYTD-pa);
+  const basicBand =Math.max(0,(D.taxUpper - D.taxAllowance))*f;
+  const higherBand=Math.max(0,(D.taxHigher - D.taxUpper))*f;
+  let tax=0;
+  tax+=Math.min(taxable,basicBand)*D.taxRate;
+  if(taxable>basicBand) tax+=Math.min(taxable-basicBand,higherBand)*D.taxHigherRate;
+  if(taxable>basicBand+higherBand) tax+=(taxable-basicBand-higherBand)*D.taxAddRate;
+  return tax;
+}
+function allowanceFromCode(code){
+  const m=String(code||'').match(/^(\d{1,5})\s*[A-Za-z]/);
+  return m ? (+m[1])*10 : D.taxAllowance;
+}
 function takeHome(){
   const g=D.annualSalary;
-  const tax=Math.max(0, Math.min(g,D.taxUpper)-D.taxAllowance)*D.taxRate;
-  const ni=Math.max(0, Math.min(g,D.taxUpper)-D.niThreshold)*D.niRate;
-  const pen=Math.max(0, Math.min(g,D.taxUpper)-D.pensionLower)*D.pensionRate;
+  const tax=bandedIncomeTax(g);
+  const ni=annualNI(g);
+  const pen=Math.max(0, Math.min(g,D.pensionUpper)-D.pensionLower)*D.pensionRate;
   return {g,tax,ni,pen,net:g-tax-ni-pen};
 }
 
-let weekChart,payChart,holChart,histChart,evaChart;
+let weekChart,payChart,holChart,histChart,evaChart,p60Chart;
 function render(){
   document.querySelectorAll(".r1").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
   document.querySelectorAll(".r2").forEach(e=>e.textContent=D.hourlyRate.toFixed(2));
@@ -451,6 +533,9 @@ function render(){
   document.getElementById("hFuture").textContent=h.future.toFixed(1)+" h";
   document.getElementById("hBooked").textContent=h.sched.toFixed(1)+" h ("+(h.sched/D.hoursPerHolidayDay).toFixed(1)+" days)";
   document.getElementById("hPending").textContent=h.pending.toFixed(1)+" h";
+  const accRate=D.accrualRate||0.1207, accruedH=D.ytdHours*accRate, earnedLeft=accruedH-h.taken;
+  document.getElementById("hAccrued").textContent=accruedH.toFixed(1)+" h ("+(accruedH/D.hoursPerHolidayDay).toFixed(1)+"d \u00b7 "+gbp(accruedH*D.hourlyRate)+")";
+  document.getElementById("accrualInsight").innerHTML="At the statutory <b>"+(accRate*100).toFixed(2)+"%</b> rate, the <b>"+D.ytdHours.toFixed(0)+" h</b> you\u2019ve worked this year have earned <b>"+accruedH.toFixed(1)+" h</b> ("+(accruedH/D.hoursPerHolidayDay).toFixed(1)+" days) of holiday. You\u2019ve taken "+h.taken.toFixed(1)+" h, so about <b>"+earnedLeft.toFixed(1)+" h</b> ("+(earnedLeft/D.hoursPerHolidayDay).toFixed(1)+" days) is earned but not yet taken.";
   document.getElementById("hYearEnd").innerHTML="<b>"+h.yearEnd.toFixed(1)+" h ("+(h.yearEnd/D.hoursPerHolidayDay).toFixed(1)+" days)</b>";
   document.getElementById("hRemainVal").textContent=gbp(h.remain*D.hourlyRate);
   document.getElementById("hBookedVal").textContent=gbp(h.sched*D.hourlyRate);
@@ -459,6 +544,8 @@ function render(){
   renderTeam();
   renderPayslip();
   renderHistory();
+  renderP60s();
+  renderRecon();
   renderCharts(th);
   syncSettingsInputs();
 }
@@ -517,6 +604,14 @@ function renderPayslip(){
 
 function psDate(d){ const m=String(d).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0; }
 function psDed(p,key){ const r=(p.deductions||[]).find(x=>String(x[0]).indexOf(key)>=0); return r?r:[key,0,0]; }
+function expForDate(dstr){
+  const m=String(dstr).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return D.annualSalary/12;
+  var y=+m[3], mo=+m[2], da=+m[1];
+  var ty=(mo>4||(mo===4&&da>=6))?y:y-1;            // UK tax year starts 6 April
+  var rt=(D.rateByYear&&D.rateByYear[ty])||D.hourlyRate;
+  return rt*D.contractedHours*52/12;
+}
 function renderHistory(){
   const list=(D.payslips||[]).slice().sort((a,b)=>psDate(a.date)-psDate(b.date));
   const tilesEl=document.getElementById("ytdTiles"), tblEl=document.getElementById("histTable");
@@ -540,10 +635,9 @@ function renderHistory(){
     {c:"t-blue",  e:"🏦", l:"Take-home YTD", v:gbp0(netYTD), s:"approx"}
   ];
   tilesEl.innerHTML=cards.map(t=>'<div class="tile '+t.c+'"><span class="emoji">'+t.e+'</span><div class="lbl">'+t.l+'</div><div class="val">'+t.v+'</div><div class="sub">'+t.s+'</div></div>').join("");
-  const expected=D.annualSalary/12;
   let h='<table><thead><tr><th style="text-align:left">Payslip</th><th>Gross</th><th>Net</th><th>Tax</th><th>NI</th><th>Pension</th><th>vs exp.</th></tr></thead><tbody>';
   list.slice().reverse().forEach(p=>{
-    var gr=p.paymentTotal?p.paymentTotal[0]:0, dv=gr-expected;
+    var gr=p.paymentTotal?p.paymentTotal[0]:0, ex=expForDate(p.date), dv=gr-ex;
     h+='<tr><td style="text-align:left">'+p.date+'</td><td>'+gbp(gr)+'</td><td>'+gbp(p.netPay||0)+'</td><td>'+gbp(psDed(p,"TAX")[1])+'</td><td>'+gbp(psDed(p,"NAT INSURANCE")[1])+'</td><td>'+gbp(psDed(p,"WPR NEST")[1])+'</td><td style="font-weight:700;color:'+(dv>=0?"#166534":"#991b1b")+'">'+(dv>=0?"+":"")+money(dv)+'</td></tr>';
   });
   h+='</tbody></table>';
@@ -559,9 +653,9 @@ function renderHistory(){
     ]},
     options:{plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+gbp(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>"£"+v}}},maintainAspectRatio:false}});
 
-  const expArr=list.map(()=>D.annualSalary/12);
+  const expArr=list.map(p=>expForDate(p.date));
   const es=document.getElementById("evaSub");
-  if(es) es.textContent="Blue = what each payslip actually paid (gross); orange = your current contracted monthly pay of "+gbp(D.annualSalary/12)+". Below orange = a short month (e.g. sick/unpaid); above = overtime/extras.";
+  if(es) es.textContent="Blue = each payslip\u2019s actual gross; orange = your contracted monthly pay for that tax year (40h/week at the minimum wage of the time). Below orange = a short month (e.g. sick/unpaid); above = overtime/extras.";
   if(evaChart) evaChart.destroy();
   evaChart=new Chart(document.getElementById("evaChart"),{type:"bar",
     data:{labels:labels,datasets:[
@@ -601,7 +695,7 @@ function syncSettingsInputs(){
   const set=(id,v)=>{const e=document.getElementById(id); if(e) e.value=v;};
   set("s_name",D.name); set("s_emp",D.employer); set("s_salary",D.annualSalary);
   set("s_rate",D.hourlyRate); set("s_chours",D.contractedHours); set("s_break",D.breakMins);
-  set("s_hpd",D.hoursPerHolidayDay); set("s_minwage",D.minWage); set("s_ytd",D.ytdHours);
+  set("s_hpd",D.hoursPerHolidayDay); set("s_minwage",D.minWage); set("s_ytd",D.ytdHours); set("s_accrual",D.accrualRate);
   set("h_taken",D.holiday.taken); set("h_remain",D.holiday.remain); set("h_future",D.holiday.future);
   set("h_sched",D.holiday.sched); set("h_pending",D.holiday.pending); set("h_yearend",D.holiday.yearEnd);
 }
@@ -610,7 +704,7 @@ function applySettings(){
   D.name=document.getElementById("s_name").value||D.name;
   D.employer=document.getElementById("s_emp").value||D.employer;
   D.annualSalary=num("s_salary"); D.hourlyRate=num("s_rate"); D.contractedHours=num("s_chours");
-  D.breakMins=num("s_break"); D.hoursPerHolidayDay=num("s_hpd")||10; D.minWage=num("s_minwage"); D.ytdHours=num("s_ytd");
+  D.breakMins=num("s_break"); D.hoursPerHolidayDay=num("s_hpd")||10; D.minWage=num("s_minwage"); D.ytdHours=num("s_ytd"); D.accrualRate=num("s_accrual")||0.1207;
   D.holiday={taken:num("h_taken"),remain:num("h_remain"),future:num("h_future"),sched:num("h_sched"),pending:num("h_pending"),yearEnd:num("h_yearend")};
   persist(); render(); flash("Changes applied ✓");
 }
@@ -661,8 +755,34 @@ async function importPayslipPDF(){
   persist(); render();
   const note=document.getElementById('payImportNote'); if(note) note.style.display='block';
   flash(ok+' payslip'+(ok!==1?'s':'')+' imported'+(fail?(' · '+fail+' skipped'):'')+' ✓');
+  if(fail) alert("Couldn\u2019t read "+fail+" PDF"+(fail>1?'s':'')+". Use the \u201c✏️ Enter a payslip manually\u201d option just below the import button to add "+(fail>1?'them':'it')+" by hand.");
 }
 function undoImport(){ if(prevData){ D.payslip=prevData.payslip; D.payslips=prevData.payslips; prevData=null; persist(); render(); const n=document.getElementById('payImportNote'); if(n) n.style.display='none'; flash('Import undone'); } }
+function saveManualPayslip(){
+  const v=id=>{const e=document.getElementById(id);return e?String(e.value).trim():'';};
+  const num=id=>{const e=document.getElementById(id);return e?(parseFloat(e.value)||0):0;};
+  const date=v('m_date');
+  if(!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)){ alert('Please enter the pay date as DD/MM/YYYY, e.g. 25/06/2026.'); return; }
+  const gross=num('m_gross'), grossY=num('m_grossY');
+  const tax=num('m_tax'), taxY=num('m_taxY');
+  const ni=num('m_ni'), niY=num('m_niY');
+  const pen=num('m_pen'), penY=num('m_penY');
+  const slip={
+    date:date, period:parseInt(v('m_period')||'0',10), taxCode:v('m_code')||'1257L', niCat:v('m_nicat')||'A', empNo:'',
+    rate:D.hourlyRate, dayRate:Math.round(D.hourlyRate*D.hoursPerHolidayDay*100)/100,
+    payments:[['SALARY',gross,grossY]], paymentTotal:[gross,grossY],
+    deductions:[['TAX',tax,taxY],['NAT INSURANCE',ni,niY],['WPR NEST PEN 1',pen,penY]],
+    deductionTotal:[tax+ni+pen, taxY+niY+penY],
+    taxablePay:[num('m_taxpay'),num('m_taxpayY')],
+    employerNIC:[0,0], employerPens:[0,0], netPay:num('m_net')
+  };
+  D.payslips=D.payslips||[];
+  const ix=D.payslips.findIndex(x=>x.date===slip.date);
+  if(ix>=0) D.payslips[ix]=slip; else D.payslips.push(slip);
+  D.payslips.sort((a,b)=>psDate(a.date)-psDate(b.date));
+  D.payslip=D.payslips[D.payslips.length-1];
+  persist(); render(); flash('Payslip saved \u2713');
+}
 
 function parsePayslip(t){
   t=t.replace(/\s+/g,' ');
@@ -707,6 +827,127 @@ function parsePayslip(t){
   return {date:date,period:period,taxCode:taxCode,niCat:niCat,empNo:empNo,rate:rate,dayRate:dayRate,
     payments:payments,paymentTotal:paymentTotal,deductions:deductions,deductionTotal:deductionTotal,
     taxablePay:taxablePay,employerNIC:employerNIC,employerPens:employerPens,netPay:netPay};
+}
+
+// ===== P60 IMPORT =====
+let prevP60=null;
+async function importP60PDF(){
+  const fEl=document.getElementById('p60Pdf');
+  const files=fEl.files;
+  if(!files||!files.length){ alert('Choose one or more P60 PDFs first.'); return; }
+  if(!window.pdfjsLib){ alert('PDF reader still loading — try again in a moment.'); return; }
+  if(!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  prevP60=JSON.parse(JSON.stringify(D.p60s||[]));
+  D.p60s=D.p60s||[];
+  let ok=0,fail=0;
+  for(const f of files){
+    try{
+      const buf=await f.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      let text='';
+      for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
+      const parsed=parseP60(text);
+      if(!parsed){ fail++; continue; }
+      const ix=D.p60s.findIndex(x=>x.endYear===parsed.endYear);
+      if(ix>=0) D.p60s[ix]=parsed; else D.p60s.push(parsed);
+      ok++;
+    }catch(e){ fail++; }
+  }
+  D.p60s.sort((a,b)=>a.endYear-b.endYear);
+  persist(); render();
+  const n=document.getElementById('p60Note'); if(n) n.style.display='block';
+  flash(ok+' P60'+(ok!==1?'s':'')+' imported'+(fail?(' · '+fail+' skipped'):'')+' ✓');
+}
+function undoP60(){ if(prevP60){ D.p60s=prevP60; prevP60=null; persist(); render(); const n=document.getElementById('p60Note'); if(n) n.style.display='none'; flash('Import undone'); } }
+
+function parseP60(t){
+  t=t.replace(/\s+/g,' ');
+  const num=s=>s==null?0:(parseFloat(String(s).replace(/,/g,''))||0);
+  let ym=t.match(/5\s*April\s*(20\d{2})/i);
+  if(!ym) ym=t.match(/Tax\s*[Yy]ear\s*to[^\d]*(20\d{2})/i);
+  if(!ym) return null;
+  const endY=+ym[1], startY=endY-1;
+  const label=startY+'/'+String(endY).slice(2);
+  let pay=0,tax=0;
+  let m=t.match(/([\d,]{5,}\.\d{2})\s+([\d,]+\.\d{2})/);   // annual pay is 5+ digits, tax follows
+  if(m){ pay=num(m[1]); tax=num(m[2]); }
+  if(!pay) return null;
+  let ni=0,b=[0,0,0];
+  const nm=t.match(/\bA\s+(\d{3,6})\s+(\d{3,6})\s+(\d{3,6})\s+([\d,]+\.\d{2})/);
+  if(nm){ b=[+nm[1],+nm[2],+nm[3]]; ni=num(nm[4]); }
+  const tc=(t.match(/\b(\d{3,4}[A-Z])\b/)||[])[1]||'';
+  let sl=0; const sm=t.match(/Student\s*Loan[^\d]{0,30}(\d+)/i); if(sm) sl=+sm[1];
+  return {year:label,endYear:endY,startYear:startY,pay:pay,tax:tax,ni:ni,niLEL:b[0],niLelPt:b[1],niPtUel:b[2],taxCode:tc,studentLoan:sl};
+}
+
+function renderP60s(){
+  const list=(D.p60s||[]).slice().sort((a,b)=>a.endYear-b.endYear);
+  const tbl=document.getElementById('p60Table');
+  if(!tbl) return;
+  if(!list.length){
+    tbl.innerHTML='<p class="hint">No P60s yet. Use the “Import P60 PDF” button above — you can select several at once.</p>';
+    if(p60Chart){ p60Chart.destroy(); p60Chart=null; }
+    return;
+  }
+  let h='<table><thead><tr><th style="text-align:left">Tax year</th><th>Gross pay</th><th>Expected</th><th>vs exp.</th><th>Income Tax</th><th>NI</th><th>After tax+NI</th></tr></thead><tbody>';
+  list.slice().reverse().forEach(p=>{
+    const rt=(D.rateByYear&&D.rateByYear[p.startYear])||D.hourlyRate;
+    const exp=rt*D.contractedHours*52;
+    const dv=p.pay-exp, after=p.pay-p.tax-p.ni;
+    h+='<tr><td style="text-align:left">'+p.year+'</td><td>'+gbp(p.pay)+'</td><td>'+gbp(exp)+'</td><td style="font-weight:700;color:'+(dv>=0?"#166534":"#991b1b")+'">'+(dv>=0?"+":"")+money(dv)+'</td><td>'+gbp(p.tax)+'</td><td>'+gbp(p.ni)+'</td><td>'+gbp(after)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  tbl.innerHTML=h;
+  const labels=list.map(p=>p.year), pay=list.map(p=>p.pay), tax=list.map(p=>p.tax), ni=list.map(p=>p.ni);
+  if(p60Chart) p60Chart.destroy();
+  p60Chart=new Chart(document.getElementById('p60Chart'),{type:'bar',
+    data:{labels:labels,datasets:[
+      {label:'Gross pay',data:pay,backgroundColor:'#4f9cff',borderRadius:6},
+      {label:'Income Tax',data:tax,backgroundColor:'#ff3d77',borderRadius:6},
+      {label:'NI',data:ni,backgroundColor:'#ffb347',borderRadius:6}
+    ]},
+    options:{plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>c.dataset.label+': '+gbp(c.parsed.y)}}},scales:{y:{ticks:{callback:v=>'£'+v}}},maintainAspectRatio:false}});
+}
+
+function renderRecon(){
+  const el=document.getElementById('reconBody'); if(!el) return;
+  const list=(D.payslips||[]).slice().sort((a,b)=>psDate(a.date)-psDate(b.date));
+  if(!list.length){
+    el.innerHTML='<p class="hint">No payslip imported yet \u2014 once you import one, this check compares the tax you actually paid against the amount HMRC\u2019s cumulative method expects.</p>';
+    return;
+  }
+  const p=list[list.length-1];
+  const period=p.period||0;
+  const taxableYTD=(p.taxablePay&&p.taxablePay[1])||0;
+  const actualTax=psDed(p,'TAX')[2];
+  if(!period||!taxableYTD){
+    el.innerHTML='<p class="hint">Your latest payslip ('+p.date+') is missing the tax period or year-to-date taxable pay needed for this check.</p>';
+    return;
+  }
+  const allow=allowanceFromCode(p.taxCode);
+  const expected=cumulativeTaxDue(taxableYTD,period,allow);
+  const diff=actualTax-expected;                       // + = paid more than needed
+  const tol=Math.max(2, expected*0.01);
+  const within=Math.abs(diff)<=tol;
+  const cls=within?'ok':(diff>0?'warn':'bad');
+  const word=within?'On track \u2014 tax looks correct':(diff>0?'You may have OVERPAID tax':'You may have UNDERPAID tax');
+  const projAnnual=period?expected*12/period:0;
+  el.innerHTML=
+    '<span class="badge '+cls+'">'+word+'</span>'+
+    '<div class="kv" style="margin-top:10px"><span>Payslip used</span><span>'+p.date+' \u00b7 tax period '+period+' of 12</span></div>'+
+    '<div class="kv"><span>Tax code on payslip</span><span>'+(p.taxCode||'\u2014')+' \u2192 \u00a3'+allow.toLocaleString('en-GB')+' tax-free/yr</span></div>'+
+    '<div class="kv"><span>Taxable pay YTD</span><span>'+gbp(taxableYTD)+'</span></div>'+
+    '<div class="kv"><span>Tax actually deducted YTD</span><span>'+gbp(actualTax)+'</span></div>'+
+    '<div class="kv"><span>Tax expected YTD (cumulative)</span><span>'+gbp(expected)+'</span></div>'+
+    '<div class="kv" style="border-bottom:none"><span><b>Difference</b></span><span style="color:'+(within?'#166534':(diff>0?'#92400e':'#991b1b'))+'"><b>'+(diff>=0?'+':'')+money(diff)+'</b></span></div>'+
+    '<div class="insight">'+(within
+      ? 'Your deductions match the cumulative PAYE calculation for tax code <b>'+(p.taxCode||'?')+'</b>. Nothing to do.'
+      : (diff>0
+        ? 'You appear to have paid about <b>'+money(diff)+'</b> more Income Tax than the cumulative method expects by tax period '+period+'. This often self-corrects in later payslips; if it persists to year-end you may be due a refund. Check your code <b>'+(p.taxCode||'?')+'</b> is on a normal cumulative basis (not a \u201cWk1/Mth1\u201d emergency basis).'
+        : 'You appear to have paid about <b>'+money(-diff)+'</b> less Income Tax than expected by tax period '+period+'. This can happen right after a tax-code change; if it persists you could owe money at year-end. Worth checking your code with HMRC.'))+
+    '</div>'+
+    '<div class="kv" style="margin-top:8px"><span>Projected full-year tax at this pace</span><span>'+gbp(projAnnual)+'</span></div>'+
+    '<p class="hint" style="margin-top:6px">NI is worked out per pay period (not cumulatively), so small month-to-month differences there are normal.</p>';
 }
 
 // ================= GOOGLE DRIVE AUTO-SYNC =================
