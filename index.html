@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg1:#1b1035; --bg2:#2b1b5e;
@@ -109,6 +110,40 @@
   .gloss li{margin-bottom:7px}
   .gloss b{color:#6d28d9}
   .netbig{font-size:1.6rem;font-weight:800;color:#22c55e}
+  /* sticky nav */
+  .nav{position:sticky;top:8px;z-index:60;display:flex;gap:6px;overflow-x:auto;padding:8px;margin-top:14px;
+       background:rgba(20,12,40,.72);backdrop-filter:blur(10px);border-radius:14px;box-shadow:var(--shadow)}
+  .nav a{color:#fff;text-decoration:none;font-size:.8rem;font-weight:600;padding:6px 11px;border-radius:999px;white-space:nowrap;background:rgba(255,255,255,.12)}
+  .nav a:hover{background:rgba(255,255,255,.28)}
+  .panel{scroll-margin-top:64px}
+  #themeBtn{position:absolute;right:18px;bottom:18px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:999px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:.85rem}
+  /* dark mode */
+  body.dark{--card:#241a40;--ink:#f1ecff;--muted:#a99dc9;
+            background:radial-gradient(1200px 600px at 10% -10%,#241452 0%,transparent 60%),
+                       radial-gradient(1000px 500px at 110% 10%,#3a1338 0%,transparent 55%),
+                       linear-gradient(160deg,#120a26,#1b1142)}
+  body.dark .panel{box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  body.dark th,body.dark td{border-bottom-color:#3a2f5c}
+  body.dark .kv{border-bottom-color:#3a2f5c}
+  body.dark .field input,body.dark .field select,body.dark td input[type=time],body.dark td input[type=text]{background:#1c1438;color:#f1ecff;border-color:#3a2f5c}
+  body.dark .rowtot{background:#2c2150}
+  body.dark .chip{background:#33265c;color:#e9ddff}
+  body.dark .booked li{background:#2a1f4d}
+  body.dark code{background:#2c2150;color:#e9ddff}
+  body.dark .info-row td{background:#221a40;color:#cfc6ea}
+  body.dark .gloss b,body.dark .net{color:#c4b5fd}
+  /* hub navigation */
+  .hidden{display:none!important}
+  .backbar{position:sticky;top:8px;z-index:60;display:flex;align-items:center;gap:12px;margin-top:14px;padding:10px 16px;background:rgba(20,12,40,.82);backdrop-filter:blur(10px);border-radius:14px;box-shadow:var(--shadow)}
+  .bbtn{background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:.9rem}
+  .bbtn:hover{background:rgba(255,255,255,.3)}
+  .vtitle{color:#fff;font-weight:700;font-size:1.02rem}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:18px}
+  .mcard{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--card);border:none;border-radius:18px;padding:20px;cursor:pointer;box-shadow:var(--shadow);color:var(--ink);transition:transform .12s,box-shadow .12s;font-family:inherit}
+  .mcard:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(0,0,0,.22)}
+  .mcard .mico{font-size:1.9rem}
+  .mcard b{font-size:1.05rem}
+  .mcard small{color:var(--muted);font-size:.82rem}
 </style>
 </head>
 <body>
@@ -118,24 +153,52 @@
     <h1 id="heroName">Jose's Pay & Hours Dashboard</h1>
     <p id="heroSub">HICP Limited · Voco Southampton — pay effective 1 April 2026</p>
     <span class="pill" id="heroPill">£12.71/hr · £26,436.80 / year</span>
+    <button id="themeBtn" onclick="toggleTheme()">🌙 Dark</button>
+  </div>
+
+  <div class="backbar hidden" id="backBar">
+    <button class="bbtn" onclick="goView('home')">🏠 Menu</button>
+    <span class="vtitle" id="viewTitle"></span>
   </div>
 
   <!-- DRIVE SYNC BAR -->
-  <div class="panel" id="driveBar" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px">
+  <div class="panel" id="driveBar" data-view="settings" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px">
     <span id="driveDot" style="width:13px;height:13px;border-radius:50%;background:#cbd5e1;display:inline-block;flex:0 0 auto"></span>
     <b style="flex:1;min-width:200px" id="driveStatus">Google Drive: starting…</b>
     <button class="btn btn-b" onclick="driveConnect()">🔗 Connect to Drive</button>
     <button class="btn btn-g" onclick="driveSaveNow()">☁️ Sync now</button>
   </div>
-  <div class="panel" id="driveSetup" style="margin-top:12px;background:#fff7ed;border-left:5px solid #ff7849;display:none">
+  <div class="panel" id="driveSetup" data-view="settings" style="margin-top:12px;background:#fff7ed;border-left:5px solid #ff7849;display:none">
     <b>⚠️ One-time setup needed.</b> Open the <b>SETUP_GoogleDrive.md</b> guide: create a free Google OAuth Client ID, paste it into the <code>CLIENT_ID</code> line near the bottom of this file, then open this page from your hosting URL (not by double-clicking the local file).
   </div>
 
   <div class="tiles" id="tiles"></div>
 
+  <div id="homeMenu">
+    <div class="menu-grid">
+      <button class="mcard" onclick="goView('roster')"><span class="mico">🗓️</span><b>My Roster</b><small>Your weekly shifts &amp; hours</small></button>
+      <button class="mcard" onclick="goView('team')"><span class="mico">👥</span><b>Team Rota</b><small>Whole team's rota &amp; totals</small></button>
+      <button class="mcard" onclick="goView('income')"><span class="mico">💷</span><b>Income</b><small>Take-home, tax, NI &amp; min wage</small></button>
+      <button class="mcard" onclick="goView('holiday')"><span class="mico">🏖️</span><b>Holiday</b><small>Holiday, lieu &amp; accrual</small></button>
+      <button class="mcard" onclick="goView('payslip')"><span class="mico">📄</span><b>Payslip</b><small>Latest payslip breakdown</small></button>
+      <button class="mcard" onclick="goView('history')"><span class="mico">📈</span><b>History</b><small>Payslip trends &amp; YTD</small></button>
+      <button class="mcard" onclick="goView('paye')"><span class="mico">🔍</span><b>Tax Check</b><small>Is your tax right?</small></button>
+      <button class="mcard" onclick="goView('p60')"><span class="mico">🧾</span><b>P60</b><small>Year-end summaries</small></button>
+      <button class="mcard" onclick="goView('settings')"><span class="mico">⚙️</span><b>Settings</b><small>Edit details, backup &amp; sync</small></button>
+    </div>
+  </div>
+
   <!-- MY ROSTER -->
-  <div class="panel">
+  <div class="panel" id="sec-roster" data-view="roster">
     <h2>🗓️ My weekly roster <span class="hint" style="margin:0 0 0 8px">edit times, totals update live</span></h2>
+    <div class="btnrow" style="margin-bottom:10px"><input type="file" id="rotaFile" accept="application/pdf,image/*" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importRotaFile()">📤 Read rota PDF/photo</button></div>
+    <div id="rotaOcrNote" class="insight" style="display:none"></div>
+    <details class="settings" style="margin-bottom:10px">
+      <summary>⌨️ Paste rota text instead (more reliable than a photo)</summary>
+      <p class="hint" style="margin-top:8px">Photo OCR of a colour grid is unreliable. Instead paste your row (or the whole rota). It understands times like <code>07:00-19:30</code> and words like <code>UNI</code>, <code>OFF</code>, <code>OFF R</code>, <code>ADMIN</code>, <code>HOLIDAY</code>, taken in Mon→Sun order. Put your name first so it locks onto your row.</p>
+      <textarea id="rotaPaste" rows="3" style="width:100%;padding:9px;border:1px solid #e5e7eb;border-radius:10px;font-size:.9rem;font-family:inherit" placeholder="Jose 07:00-19:30 UNI UNI UNI 07:00-19:30 07:00-19:30 07:00-19:30"></textarea>
+      <div class="btnrow"><button class="btn btn-g" onclick="importRotaText()">✅ Read pasted rota</button></div>
+    </details>
     <div class="grid2">
       <div>
         <table id="rosterTable">
@@ -161,15 +224,16 @@
   </div>
 
   <!-- FULL TEAM ROTA -->
-  <div class="panel">
+  <div class="panel" id="sec-team" data-view="team">
     <h2>👥 Team weekly rota — total weekly time</h2>
     <p class="hint">Week 29/06/2026 – 05/07/2026. Totals are net (each worked shift minus a <span id="brkLabel">30</span>-min break). Your row is outlined.</p>
+    <div class="btnrow" style="margin-bottom:10px"><button class="btn btn-p" onclick="loadWeekRota()">👥 Load this week’s rota (you + team)</button></div>
     <div class="scrollx" id="teamRota"></div>
     <p class="hint" id="cruiseLine" style="margin-top:12px"></p>
   </div>
 
   <!-- INCOME / TAKE-HOME -->
-  <div class="panel">
+  <div class="panel" id="sec-income" data-view="income">
     <h2>💷 Income &amp; estimated take-home</h2>
     <p class="hint">Monthly figure based on 40 hours/week (your contracted salary). Take-home is an estimate using 2026/27 UK rates.</p>
     <div class="grid2">
@@ -188,15 +252,17 @@
   </div>
 
   <!-- MIN WAGE -->
-  <div class="panel">
+  <div class="panel" data-view="income">
     <h2>⚖️ Minimum-wage watchdog</h2>
     <div id="mwBody"></div>
   </div>
 
   <!-- HOLIDAY -->
-  <div class="panel">
+  <div class="panel" id="sec-holiday" data-view="holiday">
     <h2>🏖️ Holiday &amp; lieu</h2>
     <p class="hint">1 holiday day = <span id="hpdLabel">10</span> hours. Money values are at £<span class="r2">12.71</span>/hr.</p>
+    <div class="btnrow" style="margin-bottom:10px"><input type="file" id="holFile" accept="application/pdf,image/*" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importHolidayFile()">📤 Read holiday PDF/photo</button></div>
+    <div id="holOcrNote" class="insight" style="display:none"></div>
     <div class="grid2">
       <div>
         <div class="kv"><span>Taken</span><span id="hTaken">0 h</span></div>
@@ -218,13 +284,14 @@
   </div>
 
   <!-- LATEST PAYSLIP -->
-  <div class="panel">
+  <div class="panel" id="sec-payslip" data-view="payslip">
     <h2>📄 Latest payslip — full breakdown</h2>
     <p class="hint" id="pslipSub">Most recent payslip on file. Every line is explained below.</p>
     <div class="btnrow" style="margin-bottom:12px"><input type="file" id="payPdf" accept="application/pdf" multiple style="flex:1;min-width:200px;padding:8px;border:1px solid #e5e7eb;border-radius:10px"><button class="btn btn-b" onclick="importPayslipPDF()">📤 Import payslip PDF</button></div><div id="payImportNote" class="insight" style="display:none">⚠️ Imported automatically from your PDF — please check the figures against the paper payslip. <button class="btn btn-p" style="padding:5px 12px;margin-left:8px" onclick="undoImport()">Undo import</button></div>
     <details class="settings" style="margin-bottom:12px">
       <summary>✏️ Enter a payslip manually (if a PDF won’t import)</summary>
       <div class="grid3" style="margin-top:12px">
+        <div class="field"><label class="f">Correct an existing payslip</label><select id="m_load" onchange="loadManualPayslip()"><option value="">— new entry —</option></select></div>
         <div class="field"><label class="f">Pay date (DD/MM/YYYY)</label><input id="m_date" placeholder="25/06/2026"></div>
         <div class="field"><label class="f">Tax period (1–12)</label><input id="m_period" type="number" step="1"></div>
         <div class="field"><label class="f">Tax code</label><input id="m_code" placeholder="1257L"></div>
@@ -281,7 +348,7 @@
   </div>
 
   <!-- PAYSLIP HISTORY & TRENDS -->
-  <div class="panel">
+  <div class="panel" id="sec-history" data-view="history">
     <h2>📈 Payslip history &amp; trends</h2>
     <p class="hint">Each payslip you import is saved here. Tip: in the import above you can select several PDFs at once to build your history in one go.</p>
     <div class="tiles" id="ytdTiles" style="margin-top:0"></div>
@@ -295,14 +362,14 @@
   </div>
 
   <!-- PAYE RECONCILIATION -->
-  <div class="panel">
+  <div class="panel" id="sec-paye" data-view="paye">
     <h2>🔍 PAYE tax check &mdash; is your tax right?</h2>
     <p class="hint">Uses your most recent payslip's year-to-date figures and HMRC's cumulative method to check whether the Income Tax taken so far matches what your tax code says it should be. Import a payslip above to activate.</p>
     <div id="reconBody"></div>
   </div>
 
   <!-- P60 ANNUAL SUMMARIES -->
-  <div class="panel">
+  <div class="panel" id="sec-p60" data-view="p60">
     <h2>🧾 P60 — annual summaries</h2>
     <p class="hint">Upload your year-end P60 PDFs (you can select several at once). Each shows a whole tax year's total pay, Income Tax and National Insurance.</p>
     <div class="btnrow" style="margin-bottom:12px">
@@ -315,7 +382,7 @@
   </div>
 
   <!-- SETTINGS -->
-  <div class="panel">
+  <div class="panel" id="sec-settings" data-view="settings">
     <details class="settings">
       <summary>⚙️ Edit details &amp; backup</summary>
       <div class="grid3">
@@ -362,24 +429,43 @@ const DEFAULTS = {
   taxHigher:125140, taxHigherRate:0.40, taxAddRate:0.45,
   niThreshold:12570, niRate:0.08, niUpper:50270, niUpperRate:0.02,
   pensionLower:6240, pensionRate:0.05, pensionUpper:50270,
-  accrualRate:0.1207,
+  accrualRate:0.1207, theme:'light',
   roster:[
-    {day:"Monday",   start:"09:00", end:"17:00", status:""},
-    {day:"Tuesday",  start:"09:00", end:"17:00", status:""},
-    {day:"Wednesday",start:"09:00", end:"17:00", status:""},
-    {day:"Thursday", start:"09:00", end:"17:00", status:""},
-    {day:"Friday",   start:"09:00", end:"17:00", status:""},
-    {day:"Saturday", start:"", end:"", status:"OFF"},
-    {day:"Sunday",   start:"", end:"", status:"OFF"}
+    {day:"Monday",   start:"07:00", end:"19:30", status:""},
+    {day:"Tuesday",  start:"", end:"", status:"UNI"},
+    {day:"Wednesday",start:"", end:"", status:"UNI"},
+    {day:"Thursday", start:"", end:"", status:"UNI"},
+    {day:"Friday",   start:"07:00", end:"19:30", status:""},
+    {day:"Saturday", start:"07:00", end:"19:30", status:""},
+    {day:"Sunday",   start:"07:00", end:"19:30", status:""}
   ],
   holiday:{taken:0, remain:0, future:0, sched:0, pending:0, yearEnd:0},
   booked:[],
   teamRota:{
-    dates:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
-    checkIn:[0,0,0,0,0,0,0],
-    checkOut:[0,0,0,0,0,0,0],
-    cruise:["","","","","","",""],
-    depts:[{name:"RECEPTION",staff:[]},{name:"CONCIERGE",staff:[]},{name:"NIGHTS",staff:[]}]
+    dates:["Mon 29/06","Tue 30/06","Wed 01/07","Thu 02/07","Fri 03/07","Sat 04/07","Sun 05/07"],
+    checkIn:[71,60,34,77,105,97,22],
+    checkOut:[106,53,64,52,75,107,109],
+    cruise:["Aidaperla, Arcadia, Majestic Princess","","Aurora","","Britannia","Celebrity Apex, Iona, MSC Virtuosa","Arvia, Liberty of the Seas, Queen Anne"],
+    depts:[
+      {name:"RECEPTION",staff:[
+        {n:"Carly",   d:["07:00-13:00","07:00-15:30","07:00-15:30","ADMIN","07:00-15:30","OFF","OFF"]},
+        {n:"Karol",   d:["OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00","14:30-23:00"]},
+        {n:"Su",      d:["12:30-21:00","OFF","OFF","07:00-15:30","14:30-23:00","14:30-23:00","14:30-23:00"]},
+        {n:"Jose",    d:["07:00-19:30","UNI","UNI","UNI","07:00-19:30","07:00-19:30","07:00-19:30"]},
+        {n:"Ana",     d:["14:30-23:00","14:30-23:00","14:30-23:00","OFF","OFF","07:00-15:30","07:00-15:30"]},
+        {n:"Yasmina", d:["07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","07:00-15:30","OFF","OFF"]},
+        {n:"Jakub",   d:["OFF R","14:30-23:00","14:30-23:00","14:30-23:00","OFF R","07:00-15:30","07:00-15:30"]}
+      ]},
+      {name:"CONCIERGE",staff:[
+        {n:"Jo",   d:["OFF R","OFF R","Holiday","08:30-17:00","08:30-17:00","08:30-17:00","08:30-17:00"]},
+        {n:"Luis", d:["09:00-17:30","12:00-20:30","OFF","16:30-21:30","16:30-21:30","16:30-21:30","OFF"]}
+      ]},
+      {name:"NIGHTS",staff:[
+        {n:"Jamie",   d:["23:00-07:30","23:00-07:30","23:00-07:30","23:00-10:00","OFF","OFF","23:00-07:30"]},
+        {n:"Anthony", d:["23:00-07:30","23:00-07:30","OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30"]},
+        {n:"Dino",    d:["OFF","OFF","23:00-07:30","23:00-07:30","23:00-07:30","23:00-07:30","OFF"]}
+      ]}
+    ]
   },
   payslip:{
     date:"—", period:0, taxCode:"", niCat:"", empNo:"", rate:12.71, dayRate:127.10,
@@ -427,10 +513,11 @@ function cellClass(str,dept){
 
 function bandedIncomeTax(g, allowance){
   let pa = (allowance!=null?allowance:D.taxAllowance);
-  if(g>100000) pa=Math.max(0, pa-(g-100000)/2);     // personal-allowance taper
+  if(g>100000) pa=Math.max(0, pa-(g-100000)/2);                 // personal-allowance taper
   const taxable=Math.max(0,g-pa);
-  const basicBand =Math.max(0, D.taxUpper - D.taxAllowance);   // width of 20% band
-  const higherBand=Math.max(0, D.taxHigher - D.taxUpper);      // width of 40% band
+  const basicBand =Math.max(0, D.taxUpper - D.taxAllowance);    // statutory £37,700 (20%) band
+  const higherTop =Math.max(0, D.taxHigher - pa);               // 45% threshold in taxable terms (fixed on total income)
+  const higherBand=Math.max(0, higherTop - basicBand);          // 40% band widens as allowance tapers
   let tax=0;
   tax+=Math.min(taxable,basicBand)*D.taxRate;
   if(taxable>basicBand) tax+=Math.min(taxable-basicBand,higherBand)*D.taxHigherRate;
@@ -442,13 +529,17 @@ function annualNI(g){
   if(g>D.niUpper) ni+=(g-D.niUpper)*D.niUpperRate;     // 2% above upper earnings limit
   return ni;
 }
-// HMRC cumulative PAYE: tax due by tax period N, thresholds pro-rated N/12
+// HMRC cumulative PAYE: tax due by tax period N, thresholds pro-rated N/12 (with high-earner allowance taper)
 function cumulativeTaxDue(taxableYTD, period, allowance){
-  const f=Math.max(0,Math.min(12,period))/12;
-  const pa=(allowance!=null?allowance:D.taxAllowance)*f;
+  const f=Math.max(0,Math.min(12,period))/12 || 1;
+  let paAnnual=(allowance!=null?allowance:D.taxAllowance);
+  const annualised=taxableYTD/f;                       // project YTD to a full year
+  if(annualised>100000) paAnnual=Math.max(0, paAnnual-(annualised-100000)/2);   // £1 lost per £2 over £100k
+  const pa=paAnnual*f;
   const taxable=Math.max(0,taxableYTD-pa);
   const basicBand =Math.max(0,(D.taxUpper - D.taxAllowance))*f;
-  const higherBand=Math.max(0,(D.taxHigher - D.taxUpper))*f;
+  const higherTop =Math.max(0,(D.taxHigher - paAnnual))*f;       // 45% threshold (total income), pro-rated
+  const higherBand=Math.max(0, higherTop - basicBand);           // 40% band widens with tapered allowance
   let tax=0;
   tax+=Math.min(taxable,basicBand)*D.taxRate;
   if(taxable>basicBand) tax+=Math.min(taxable-basicBand,higherBand)*D.taxHigherRate;
@@ -548,6 +639,8 @@ function render(){
   renderRecon();
   renderCharts(th);
   syncSettingsInputs();
+  fillManualSelect();
+  applyTheme();
 }
 
 function renderTeam(){
@@ -932,6 +1025,11 @@ function renderRecon(){
   const cls=within?'ok':(diff>0?'warn':'bad');
   const word=within?'On track \u2014 tax looks correct':(diff>0?'You may have OVERPAID tax':'You may have UNDERPAID tax');
   const projAnnual=period?expected*12/period:0;
+  const annualTaxable=period?taxableYTD*12/period:taxableYTD;
+  const band = annualTaxable<=D.taxAllowance ? 'no tax (within personal allowance)'
+    : annualTaxable<=D.taxUpper ? 'basic rate (20%)'
+    : annualTaxable<=D.taxHigher ? 'higher rate (40%)'
+    : 'additional rate (45%)';
   el.innerHTML=
     '<span class="badge '+cls+'">'+word+'</span>'+
     '<div class="kv" style="margin-top:10px"><span>Payslip used</span><span>'+p.date+' \u00b7 tax period '+period+' of 12</span></div>'+
@@ -939,6 +1037,7 @@ function renderRecon(){
     '<div class="kv"><span>Taxable pay YTD</span><span>'+gbp(taxableYTD)+'</span></div>'+
     '<div class="kv"><span>Tax actually deducted YTD</span><span>'+gbp(actualTax)+'</span></div>'+
     '<div class="kv"><span>Tax expected YTD (cumulative)</span><span>'+gbp(expected)+'</span></div>'+
+    '<div class="kv"><span>Your tax band (annualised)</span><span>'+band+'</span></div>'+
     '<div class="kv" style="border-bottom:none"><span><b>Difference</b></span><span style="color:'+(within?'#166534':(diff>0?'#92400e':'#991b1b'))+'"><b>'+(diff>=0?'+':'')+money(diff)+'</b></span></div>'+
     '<div class="insight">'+(within
       ? 'Your deductions match the cumulative PAYE calculation for tax code <b>'+(p.taxCode||'?')+'</b>. Nothing to do.'
@@ -948,6 +1047,156 @@ function renderRecon(){
     '</div>'+
     '<div class="kv" style="margin-top:8px"><span>Projected full-year tax at this pace</span><span>'+gbp(projAnnual)+'</span></div>'+
     '<p class="hint" style="margin-top:6px">NI is worked out per pay period (not cumulatively), so small month-to-month differences there are normal.</p>';
+}
+
+function applyTheme(){
+  document.body.classList.toggle('dark', D.theme==='dark');
+  const b=document.getElementById('themeBtn'); if(b) b.textContent = D.theme==='dark' ? '☀️ Light' : '🌙 Dark';
+}
+function toggleTheme(){ D.theme = (D.theme==='dark') ? 'light' : 'dark'; persist(); applyTheme(); }
+
+// shared: get text out of a PDF (PDF.js) or image (Tesseract OCR)
+async function fileToText(file){
+  if(file.type==='application/pdf'){
+    if(!window.pdfjsLib) throw new Error('PDF reader still loading');
+    if(!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let text='';
+    for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
+    return text;
+  }
+  if(!window.Tesseract) throw new Error('OCR engine still loading — try again in a moment');
+  const res=await Tesseract.recognize(file,'eng');
+  return res.data.text;
+}
+
+async function importHolidayFile(){
+  const files=document.getElementById('holFile').files;
+  if(!files||!files.length){ alert('Choose one or more holiday PDFs/photos first.'); return; }
+  const note=document.getElementById('holOcrNote'); note.style.display='block';
+  note.innerHTML='⏳ Reading '+files.length+' file'+(files.length>1?'s':'')+'… photos can take several seconds.';
+  try{
+    let raw='';
+    for(const f of files){ raw+=' '+await fileToText(f); }
+    const t=raw.replace(/\s+/g,' ');
+    const grab=re=>{ const m=t.match(re); return m?parseFloat(String(m[1]).replace(/,/g,'')):null; };
+    const ent   =grab(/(?:entitlement|allowance|total leave)[^\d-]{0,20}([\d.,]+)/i);
+    const taken =grab(/taken[^\d-]{0,20}([\d.,]+)/i);
+    const remain=grab(/(?:remaining|balance|left)[^\d-]{0,20}([\d.,]+)/i);
+    const booked=grab(/(?:booked|scheduled|approved)[^\d-]{0,20}([\d.,]+)/i);
+    const applied=[];
+    if(ent!=null){ D.holiday.future=ent; applied.push('entitlement '+ent); }
+    if(taken!=null){ D.holiday.taken=taken; applied.push('taken '+taken); }
+    if(remain!=null){ D.holiday.remain=remain; applied.push('remaining '+remain); }
+    if(booked!=null){ D.holiday.sched=booked; applied.push('booked '+booked); }
+    persist(); render();
+    note.innerHTML='⚠️ <b>Read from your file — please check these are right</b> (and whether they were in hours or days). '+
+      (applied.length? 'Filled: '+applied.join(', ')+'. Adjust in Settings if needed.' : 'No recognisable holiday figures found — enter them in Settings.')+
+      '<br><small style="opacity:.8">Raw text: '+t.slice(0,260).replace(/</g,'&lt;')+'…</small>';
+  }catch(e){ note.innerHTML='❌ Could not read that file: '+(e.message||e); }
+}
+
+async function importRotaFile(){
+  const files=document.getElementById('rotaFile').files;
+  if(!files||!files.length){ alert('Choose one or more rota PDFs/photos first.'); return; }
+  const note=document.getElementById('rotaOcrNote'); note.style.display='block';
+  note.innerHTML='⏳ Reading '+files.length+' file'+(files.length>1?'s':'')+'… photos can take several seconds.';
+  try{
+    let raw='';
+    for(const f of files){ raw+=' '+await fileToText(f); }
+    const t=raw.replace(/\s+/g,' ');
+    const r=applyRosterTokens(t);
+    persist(); render();
+    note.innerHTML='⚠️ <b>Read from your file — check every shift!</b> '+r.msg+
+      '<br><small style="opacity:.8">Raw text: '+t.slice(0,300).replace(/</g,'&lt;')+'…</small>';
+  }catch(e){ note.innerHTML='❌ Could not read that file: '+(e.message||e); }
+}
+
+// ---- rota parsing: tokenise a row into up to 7 shifts (time-range OR status word) ----
+function rosterTokens(str){
+  const out=[]; let i=0; str=' '+String(str)+' ';
+  while(i<str.length && out.length<7){
+    const sub=str.slice(i);
+    let m=sub.match(/^\s*(OFF\s*R|OFFR|OFF|UNI|ADMIN|HOLIDAY|HOL|LIEU|SICK)\b/i);
+    if(m){ let st=m[1].toUpperCase().replace(/\s+/g,' '); if(st==='OFFR') st='OFF R'; out.push({status:st,start:'',end:''}); i+=m[0].length; continue; }
+    m=sub.match(/^\s*(\d{1,2})[:.\s]?(\d{2})\s*(?:-|\u2013|\u2014|to|~|\.{2})\s*(\d{1,2})[:.\s]?(\d{2})/i);
+    if(m && +m[1]<=24 && +m[2]<60 && +m[3]<=24 && +m[4]<60){
+      out.push({status:'', start:(''+m[1]).padStart(2,'0')+':'+m[2], end:(''+m[3]).padStart(2,'0')+':'+m[4]});
+      i+=m[0].length; continue;
+    }
+    i++;
+  }
+  return out;
+}
+function applyRosterTokens(t){
+  const flat=String(t).replace(/\s+/g,' ');
+  const name=((D.name||'').trim().split(/\s+/)[0]||'').toLowerCase();
+  let win=null, src='the whole sheet';
+  if(name && name!=='your'){
+    const idx=flat.toLowerCase().indexOf(name);
+    if(idx>=0){
+      let end=flat.length;
+      ['reception','concierge','nights','total'].forEach(k=>{ const j=flat.toLowerCase().indexOf(k, idx+name.length); if(j>=0 && j<end) end=j; });
+      win=flat.slice(idx+name.length, Math.min(end, idx+name.length+300));
+      src='your row ('+(D.name.split(' ')[0])+')';
+    }
+  }
+  let toks = win!=null ? rosterTokens(win) : [];
+  if(toks.length<7){ const all=rosterTokens(flat); if(all.length>toks.length){ toks=all; src='the whole sheet (couldn\u2019t lock onto your name)'; } }
+  let n=0;
+  for(let i=0;i<7;i++){ if(toks[i]){ D.roster[i].start=toks[i].start||''; D.roster[i].end=toks[i].end||''; D.roster[i].status=toks[i].status||''; n++; } }
+  return {n, src, msg:'Filled '+n+' day'+(n!==1?'s':'')+' from '+src+'. Parsing rotas is rough \u2014 correct anything wrong in the roster above.'};
+}
+function importRotaText(){
+  const el=document.getElementById('rotaPaste'); const t=el?el.value:'';
+  if(!t.trim()){ alert('Paste your rota text first \u2014 your row, or the whole grid.'); return; }
+  const note=document.getElementById('rotaOcrNote'); note.style.display='block';
+  const r=applyRosterTokens(t); persist(); render();
+  note.innerHTML='\u2705 <b>Parsed pasted text \u2014 please check every shift.</b> '+r.msg;
+}
+function loadWeekRota(){
+  D.roster=structuredClone(DEFAULTS.roster);
+  D.teamRota=structuredClone(DEFAULTS.teamRota);
+  persist(); render(); flash('This week\u2019s rota loaded \u2713');
+}
+function fillManualSelect(){
+  const sel=document.getElementById('m_load'); if(!sel) return;
+  const cur=sel.value;
+  const opts=['<option value="">— new entry —</option>'].concat(
+    (D.payslips||[]).slice().sort((a,b)=>psDate(b.date)-psDate(a.date))
+      .map(p=>'<option value="'+p.date+'">'+p.date+' (period '+p.period+')</option>'));
+  sel.innerHTML=opts.join(''); sel.value=cur;
+}
+function loadManualPayslip(){
+  const ids=['m_date','m_period','m_code','m_nicat','m_gross','m_grossY','m_taxpay','m_taxpayY','m_tax','m_taxY','m_ni','m_niY','m_pen','m_penY','m_net'];
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=(v==null?'':v); };
+  const date=document.getElementById('m_load').value;
+  if(!date){ ids.forEach(id=>set(id,'')); return; }
+  const p=(D.payslips||[]).find(x=>x.date===date); if(!p) return;
+  const ded=(k,i)=>{ const r=(p.deductions||[]).find(x=>String(x[0]).indexOf(k)>=0); return r?r[i]:0; };
+  set('m_date',p.date); set('m_period',p.period); set('m_code',p.taxCode); set('m_nicat',p.niCat);
+  set('m_gross',p.paymentTotal?p.paymentTotal[0]:''); set('m_grossY',p.paymentTotal?p.paymentTotal[1]:'');
+  set('m_taxpay',p.taxablePay?p.taxablePay[0]:''); set('m_taxpayY',p.taxablePay?p.taxablePay[1]:'');
+  set('m_tax',ded('TAX',1)); set('m_taxY',ded('TAX',2));
+  set('m_ni',ded('NAT INSURANCE',1)); set('m_niY',ded('NAT INSURANCE',2));
+  set('m_pen',ded('WPR NEST',1)); set('m_penY',ded('WPR NEST',2));
+  set('m_net',p.netPay);
+}
+
+const VIEW_TITLES={roster:'🗓️ My weekly roster',team:'👥 Team weekly rota',income:'💷 Income & minimum wage',holiday:'🏖️ Holiday & lieu',payslip:'📄 Latest payslip',history:'📈 Payslip history & trends',paye:'🔍 PAYE tax check',p60:'🧾 P60 summaries',settings:'⚙️ Settings & cloud backup'};
+function goView(v){
+  v=v||'home'; const home=(v==='home');
+  const hm=document.getElementById('homeMenu'); if(hm) hm.classList.toggle('hidden',!home);
+  const tiles=document.getElementById('tiles'); if(tiles) tiles.classList.toggle('hidden',!home);
+  document.querySelectorAll('.panel[data-view]').forEach(el=>{
+    el.classList.toggle('hidden', home || el.getAttribute('data-view')!==v);
+  });
+  const bb=document.getElementById('backBar'); if(bb) bb.classList.toggle('hidden',home);
+  const vt=document.getElementById('viewTitle'); if(vt) vt.textContent=home?'':(VIEW_TITLES[v]||'');
+  D._view=v;
+  try{ render(); }catch(e){}
+  window.scrollTo(0,0);
 }
 
 // ================= GOOGLE DRIVE AUTO-SYNC =================
@@ -1035,6 +1284,7 @@ async function driveSaveNow(){
 }
 
 render();
+goView('home');
 driveInit();
 </script>
 </body>
