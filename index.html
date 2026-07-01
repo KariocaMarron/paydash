@@ -855,6 +855,57 @@ function flash(msg){
 
 // ===== PDF PAYSLIP IMPORT =====
 let prevData=null;
+// Rebuild PDF text into visual rows using each fragment's x/y position (fixes column scrambling)
+async function pdfLayoutText(pdf){
+  var lines=[];
+  for(var i=1;i<=pdf.numPages;i++){
+    var pg=await pdf.getPage(i); var c=await pg.getTextContent();
+    var its=c.items.filter(function(x){return x.str && x.str.trim();}).map(function(x){return {s:x.str, x:x.transform[4], y:x.transform[5]};});
+    its.sort(function(a,b){ return b.y-a.y || a.x-b.x; });
+    var rows=[];
+    its.forEach(function(t){
+      var r=null; for(var k=0;k<rows.length;k++){ if(Math.abs(rows[k].y-t.y)<=2){ r=rows[k]; break; } }
+      if(!r){ r={y:t.y, toks:[]}; rows.push(r); }
+      r.toks.push(t);
+    });
+    rows.forEach(function(r){
+      r.toks.sort(function(a,b){return a.x-b.x;});
+      lines.push(r.toks.map(function(t){return t.s;}).join(' '));
+    });
+  }
+  return lines.join('\n');
+}
+// Column-aware payslip parser (mirrors the validated layout logic)
+function parsePayslip2(t){
+  function norm(l){ return l.replace(/(\d)\s+-(?=\s|$)/g,'$1-'); }
+  function num(s){ s=String(s).trim(); var neg=s.slice(-1)==='-'; s=s.replace(/,/g,'').replace(/-/g,''); var v=parseFloat(s); return isNaN(v)?0:(neg?-v:v); }
+  var NUM=/-?[\d,]+\.\d{2,}-?/g;
+  function last2(seg){ var n=seg.match(NUM)||[]; if(n.length>=2) return [num(n[n.length-2]),num(n[n.length-1])]; if(n.length===1) return [num(n[0]),0]; return [0,0]; }
+  var DED=/(TAX|NAT INSURANCE|HSF|WPR NEST PEN 1|WPR NEST|STUDENT LOAN|COURT ORDER)/;
+  function labelOf(seg){ var m=seg.match(/^\s*([A-Za-z][A-Za-z0-9 \/&\-.']*?)\s{2,}/); if(!m) m=seg.match(/^\s*([A-Za-z][A-Za-z0-9 \/&\-.']*?)\s+-?[\d,]/); return m?m[1].replace(/\s+[\d.,]+$/,'').trim():''; }
+  function fld(re){ var m=t.match(re); return m?m[1]:''; }
+  function two(lbl){ var m=t.match(new RegExp(lbl+'\\s+(-?[\\d,]+\\.\\d{2}-?)\\s+(-?[\\d,]+\\.\\d{2}-?)')); return m?[num(m[1]),num(m[2])]:[0,0]; }
+  var date=fld(/Payment Advice\s+(\d{2}\/\d{2}\/\d{2,4})/); if(!date) return null;
+  var dp=date.split('/'); if(dp[2].length===2) dp[2]='20'+dp[2]; date=dp[0]+'/'+dp[1]+'/'+dp[2];
+  var payments=[],deductions=[],payTot=[0,0],dedTot=[0,0],inreg=false,lines=t.split('\n');
+  for(var i=0;i<lines.length;i++){
+    var l=norm(lines[i]);
+    if(l.indexOf('Pay Item')>=0 && l.indexOf('Deduction Item')>=0){ inreg=true; continue; }
+    if(!inreg) continue;
+    if(l.indexOf('PAYMENT TOTAL')>=0){ var di=l.indexOf('DEDUCTION TOTAL'); payTot=last2(di<0?l:l.slice(0,di)); if(di>=0) dedTot=last2(l.slice(di)); break; }
+    if(!l.trim()) continue;
+    var m=DED.exec(l); var left=m?l.slice(0,m.index):l; var right=m?l.slice(m.index):'';
+    var pl=labelOf(left); if(pl && pl.toUpperCase()!=='PAY ITEM') payments.push([pl].concat(last2(left)));
+    if(right){ var dl=labelOf(right)||(right.match(DED)||[])[1]||''; deductions.push([dl].concat(last2(right))); }
+  }
+  if(!payments.length && !deductions.length) return null;
+  var rate=D.hourlyRate, dayRate=Math.round(rate*D.hoursPerHolidayDay*100)/100;
+  return {date:date, period:parseInt(fld(/Tax Period\s+(\d+)/)||'0',10), taxCode:fld(/Tax Code\s+(\d+[A-Z]+)/)||'1257L',
+    niCat:fld(/N\.?I\.?\s*Category\s+([A-Z])/)||'A', empNo:fld(/Employee No\.?\s+(\d+)/)||'', rate:rate, dayRate:dayRate,
+    payments:payments, paymentTotal:payTot, deductions:deductions, deductionTotal:dedTot,
+    taxablePay:two('Taxable Pay'), employerNIC:two('Employers NIC'), employerPens:two('Employers Pens'),
+    netPay:num(fld(/BANK\s+([\d,]+\.\d{2})/))};
+}
 async function importPayslipPDF(){
   const fEl=document.getElementById('payPdf');
   const files=fEl.files;
@@ -868,9 +919,8 @@ async function importPayslipPDF(){
     try{
       const buf=await f.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-      let text='';
-      for(let i=1;i<=pdf.numPages;i++){ const pg=await pdf.getPage(i); const c=await pg.getTextContent(); text+=' '+c.items.map(x=>x.str).join(' '); }
-      const parsed=parsePayslip(text);
+      let text=await pdfLayoutText(pdf);
+      const parsed=parsePayslip2(text);
       if(!parsed){ fail++; continue; }
       const ix=D.payslips.findIndex(x=>x.date===parsed.date);
       if(ix>=0) D.payslips[ix]=parsed; else D.payslips.push(parsed);
