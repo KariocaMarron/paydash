@@ -165,11 +165,11 @@
   <div class="panel" id="driveBar" style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px">
     <span id="driveDot" style="width:13px;height:13px;border-radius:50%;background:#cbd5e1;display:inline-block;flex:0 0 auto"></span>
     <b style="flex:1;min-width:200px" id="driveStatus">Google Drive: starting…</b>
-    <button class="btn btn-b" onclick="driveConnect()">🔗 Connect to Drive</button>
-    <button class="btn btn-g" onclick="driveSaveNow()">☁️ Sync now</button>
+    <span id="driveBtns" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-b" onclick="driveConnect()">🔗 Connect to Drive</button>
+    <button class="btn btn-g" onclick="driveSaveNow()">☁️ Sync now</button></span>
   </div>
-  <div class="panel" id="driveSetup" data-view="settings" style="margin-top:12px;background:#fff7ed;border-left:5px solid #ff7849;display:none">
-    <b>⚠️ One-time setup needed.</b> Open the <b>SETUP_GoogleDrive.md</b> guide: create a free Google OAuth Client ID, paste it into the <code>CLIENT_ID</code> line near the bottom of this file, then open this page from your hosting URL (not by double-clicking the local file).
+  <div class="panel" id="driveSetup" data-view="settings" style="margin-top:12px;background:#eef6ff;border-left:5px solid #2563eb;display:none">
+    ☁️ <b>You're viewing the offline local copy.</b> To back up and sync across your phone and other PCs, open the hosted version: <a href="https://kariocamarron.github.io/paydash/" target="_blank" rel="noopener" style="color:#1d4ed8;font-weight:700">kariocamarron.github.io/paydash</a>.<div class="btnrow" style="margin-top:10px"><a class="btn btn-b" href="https://kariocamarron.github.io/paydash/" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">🔗 Open synced version →</a></div><p class="hint" style="margin-top:8px">This local file still works fully offline — it just can't sync. No setup needed; Drive is already configured on the hosted site.</p>
   </div>
 
   <div class="tiles" id="tiles"></div>
@@ -1214,7 +1214,7 @@ const driveHeader = () => ({Authorization:"Bearer "+DRIVE.token});
 
 function driveInit(){
   if(!driveConfigured()){ document.getElementById("driveSetup").style.display="block"; driveDot("#cbd5e1","Google Drive: needs setup — add your Client ID"); return; }
-  if(location.protocol==="file:"){ document.getElementById("driveSetup").style.display="block"; driveDot("#ef4444","Google Drive: open via your https:// URL, not the local file"); return; }
+  if(location.protocol==="file:"){ document.getElementById("driveSetup").style.display="block"; driveDot("#f59e0b","Google Drive sync runs on your hosted site — this is the offline local copy"); var _b=document.getElementById("driveBtns"); if(_b) _b.innerHTML='<a class="btn btn-b" href="https://kariocamarron.github.io/paydash/" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">🔗 Open synced version →</a>'; return; }
   if(!window.google||!google.accounts||!google.accounts.oauth2){ setTimeout(driveInit,400); return; }
   DRIVE.tokenClient=google.accounts.oauth2.initTokenClient({
     client_id:DRIVE.CLIENT_ID, scope:DRIVE.SCOPE,
