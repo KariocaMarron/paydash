@@ -356,6 +356,9 @@
       <div><div class="chartbox"><canvas id="histChart"></canvas></div></div>
       <div class="scrollx"><div id="histTable"></div></div>
     </div>
+    <h2 style="font-size:1rem;margin:18px 0 4px">🔎 Month notes &amp; alerts</h2>
+    <p class="hint">Explains each month's difference from a full month (now adjusted for the number of working days that month), and flags any shortfall the payslip doesn't account for.</p>
+    <div id="histNotes"></div>
     <h2 style="font-size:1rem;margin:18px 0 4px">📊 Expected vs actual (gross per payslip)</h2>
     <p class="hint" id="evaSub">Compares each payslip's actual gross pay against your contracted monthly pay.</p>
     <div class="chartbox"><canvas id="evaChart"></canvas></div>
@@ -391,6 +394,7 @@
         <div class="field"><label class="f">Annual salary (£)</label><input id="s_salary" type="number" step="0.01"></div>
         <div class="field"><label class="f">Hourly rate (£)</label><input id="s_rate" type="number" step="0.01"></div>
         <div class="field"><label class="f">Contracted hrs/week</label><input id="s_chours" type="number" step="0.5"></div>
+        <div class="field"><label class="f">Contracted days/week</label><input id="s_wdays" type="number" step="1"></div>
         <div class="field"><label class="f">Unpaid break/shift (mins)</label><input id="s_break" type="number" step="5"></div>
         <div class="field"><label class="f">Hours per holiday day</label><input id="s_hpd" type="number" step="0.5"></div>
         <div class="field"><label class="f">Legal min wage (£)</label><input id="s_minwage" type="number" step="0.01"></div>
@@ -429,7 +433,7 @@ const DEFAULTS = {
   taxHigher:125140, taxHigherRate:0.40, taxAddRate:0.45,
   niThreshold:12570, niRate:0.08, niUpper:50270, niUpperRate:0.02,
   pensionLower:6240, pensionRate:0.05, pensionUpper:50270,
-  accrualRate:0.1207, theme:'light',
+  accrualRate:0.1207, workDaysPerWeek:5, theme:'light',
   roster:[
     {day:"Monday",   start:"07:00", end:"19:30", status:""},
     {day:"Tuesday",  start:"", end:"", status:"UNI"},
@@ -697,21 +701,25 @@ function renderPayslip(){
 
 function psDate(d){ const m=String(d).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():0; }
 function psDed(p,key){ const r=(p.deductions||[]).find(x=>String(x[0]).indexOf(key)>=0); return r?r:[key,0,0]; }
+function weekdaysInMonth(y,mo){ var d=new Date(y,mo-1,1),c=0; while(d.getMonth()===mo-1){ var w=d.getDay(); if(w>=1&&w<=5)c++; d.setDate(d.getDate()+1);} return c; }
 function expForDate(dstr){
   const m=String(dstr).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if(!m) return D.annualSalary/12;
   var y=+m[3], mo=+m[2], da=+m[1];
   var ty=(mo>4||(mo===4&&da>=6))?y:y-1;            // UK tax year starts 6 April
   var rt=(D.rateByYear&&D.rateByYear[ty])||D.hourlyRate;
-  return rt*D.contractedHours*52/12;
+  var dpw=D.workDaysPerWeek||5;                    // contracted days per week
+  var dailyPay=(D.contractedHours/dpw)*rt;         // pay for one working day
+  return weekdaysInMonth(y,mo)*dailyPay;           // expected = working days that month x daily pay
 }
+function expDaysForDate(dstr){ var m=String(dstr).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(!m) return 0; return weekdaysInMonth(+m[3],+m[2]); }
 function renderHistory(){
   const list=(D.payslips||[]).slice().sort((a,b)=>psDate(a.date)-psDate(b.date));
   const tilesEl=document.getElementById("ytdTiles"), tblEl=document.getElementById("histTable");
   if(!tilesEl||!tblEl) return;
   if(!list.length){
     tilesEl.innerHTML="";
-    tblEl.innerHTML='<p class="hint">No payslips saved yet. Use the “Import payslip PDF” button above — you can select several PDFs at once.</p>';
+    tblEl.innerHTML='<p class="hint">No payslips saved yet. Use the “Import payslip PDF” button above — you can select several PDFs at once.</p>'; var _n=document.getElementById('histNotes'); if(_n) _n.innerHTML='';
     if(histChart){ histChart.destroy(); histChart=null; }
     if(evaChart){ evaChart.destroy(); evaChart=null; }
     return;
@@ -735,6 +743,32 @@ function renderHistory(){
   });
   h+='</tbody></table>';
   tblEl.innerHTML=h;
+  var nEl=document.getElementById('histNotes');
+  if(nEl){
+    var CAUSE={'HRS-O/TIME':'overtime','LEISUR CLB UPSEL':'leisure-club commission','PAY-BACK PAY':'back pay','PAY-TMOTM':'Team Member of the Month award','PAY HOLS & LIEU':'holiday/lieu pay','HOLIDAYS TAKEN':'holiday taken','LIEU DAYS TAKEN':'lieu days taken','ENHANCE HOL RATE':'holiday-rate top-up','DAYS CO SICK PAY':'company sick pay','DYS-UNPAID SICK':'unpaid sick day(s)','DAYS UNPAID SICK':'unpaid sick day(s)','NOR1':'allowance (NOR1)','OTHERS':'other adjustments'};
+    var out='';
+    list.slice().reverse().forEach(function(p){
+      var gr=p.paymentTotal?p.paymentTotal[0]:0, ex=expForDate(p.date), dv=gr-ex;
+      if(Math.abs(dv)<5) return;
+      var pays=p.payments||[], salRow=null;
+      pays.forEach(function(a){ if(String(a[0]).indexOf('SALARY')>=0) salRow=a; });
+      var salary=salRow?(salRow[1]||0):0, baseDiff=salary?salary-ex:0, items=[];
+      pays.forEach(function(a){ var lab=String(a[0]); if(lab.indexOf('SALARY')>=0) return; var amt=a[1]||0; if(Math.abs(amt)<0.005) return; items.push({name:(CAUSE[lab]||lab), amt:amt}); });
+      var parts=items.map(function(i){ return (i.amt>=0?'+':'\u2212')+gbp(Math.abs(i.amt))+' '+i.name; });
+      if(Math.abs(baseDiff)>=5) parts.unshift((baseDiff>=0?'+':'\u2212')+gbp(Math.abs(baseDiff))+' vs standard basic pay');
+      var hasNeg=items.some(function(i){return i.amt<0;});
+      var when='<b>'+p.date+'</b>';
+      var noDetail = !items.length && Math.abs(baseDiff)<5;
+      if(dv<-5 && baseDiff<-5 && !hasNeg){
+        out+='<div class="insight" style="background:#fee2e2;border-color:#991b1b;color:#7f1d1d;margin-top:8px">\u26A0\uFE0F '+when+' \u2014 shortfall of '+gbp(Math.abs(dv))+': your basic pay was '+gbp(Math.abs(baseDiff))+' below a normal month and nothing on the payslip explains it. Worth investigating / checking with payroll.</div>';
+      } else if(dv<0){
+        out+='<div class="insight" style="margin-top:8px">'+when+' \u2014 '+gbp(Math.abs(dv))+' below a full month'+(parts.length?', due to: '+parts.join(', '):(noDetail?' (no line-item detail on this payslip)':''))+'. Looks accounted for.</div>';
+      } else {
+        out+='<div class="insight" style="background:#dcfce7;border-color:#16a34a;color:#14532d;margin-top:8px">'+when+' \u2014 '+gbp(dv)+' above a full month'+(parts.length?', from: '+parts.join(', '):(noDetail?' (no line-item detail on this payslip)':''))+'.</div>';
+      }
+    });
+    nEl.innerHTML = out || '<p class="hint">Every month is within \u00a35 of a full contracted month \u2014 nothing to flag.</p>';
+  }
   const labels=list.map(p=>String(p.date).slice(0,5));
   const net=list.map(p=>p.netPay||0);
   const gross=list.map(p=>p.paymentTotal?p.paymentTotal[0]:0);
@@ -748,7 +782,7 @@ function renderHistory(){
 
   const expArr=list.map(p=>expForDate(p.date));
   const es=document.getElementById("evaSub");
-  if(es) es.textContent="Blue = each payslip\u2019s actual gross; orange = your contracted monthly pay for that tax year (40h/week at the minimum wage of the time). Below orange = a short month (e.g. sick/unpaid); above = overtime/extras.";
+  if(es) es.textContent="Blue = each payslip\u2019s actual gross; orange = expected pay for that month \u2014 now adjusted for the number of working days in the month (your contracted daily hours at that year\u2019s rate). Below orange = a short month (unpaid/sick); above = overtime/extras.";
   if(evaChart) evaChart.destroy();
   evaChart=new Chart(document.getElementById("evaChart"),{type:"bar",
     data:{labels:labels,datasets:[
@@ -788,7 +822,7 @@ function syncSettingsInputs(){
   const set=(id,v)=>{const e=document.getElementById(id); if(e) e.value=v;};
   set("s_name",D.name); set("s_emp",D.employer); set("s_salary",D.annualSalary);
   set("s_rate",D.hourlyRate); set("s_chours",D.contractedHours); set("s_break",D.breakMins);
-  set("s_hpd",D.hoursPerHolidayDay); set("s_minwage",D.minWage); set("s_ytd",D.ytdHours); set("s_accrual",D.accrualRate);
+  set("s_hpd",D.hoursPerHolidayDay); set("s_minwage",D.minWage); set("s_ytd",D.ytdHours); set("s_accrual",D.accrualRate); set("s_wdays",D.workDaysPerWeek);
   set("h_taken",D.holiday.taken); set("h_remain",D.holiday.remain); set("h_future",D.holiday.future);
   set("h_sched",D.holiday.sched); set("h_pending",D.holiday.pending); set("h_yearend",D.holiday.yearEnd);
 }
@@ -797,7 +831,7 @@ function applySettings(){
   D.name=document.getElementById("s_name").value||D.name;
   D.employer=document.getElementById("s_emp").value||D.employer;
   D.annualSalary=num("s_salary"); D.hourlyRate=num("s_rate"); D.contractedHours=num("s_chours");
-  D.breakMins=num("s_break"); D.hoursPerHolidayDay=num("s_hpd")||10; D.minWage=num("s_minwage"); D.ytdHours=num("s_ytd"); D.accrualRate=num("s_accrual")||0.1207;
+  D.breakMins=num("s_break"); D.hoursPerHolidayDay=num("s_hpd")||10; D.minWage=num("s_minwage"); D.ytdHours=num("s_ytd"); D.accrualRate=num("s_accrual")||0.1207; D.workDaysPerWeek=num("s_wdays")||5;
   D.holiday={taken:num("h_taken"),remain:num("h_remain"),future:num("h_future"),sched:num("h_sched"),pending:num("h_pending"),yearEnd:num("h_yearend")};
   persist(); render(); flash("Changes applied ✓");
 }
