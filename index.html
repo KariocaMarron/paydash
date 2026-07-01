@@ -236,6 +236,7 @@
   <div class="panel" id="sec-income" data-view="income">
     <h2>💷 Income &amp; estimated take-home</h2>
     <p class="hint">Monthly figure based on 40 hours/week (your contracted salary). Take-home is an estimate using 2026/27 UK rates.</p>
+    <div class="btnrow" style="margin-bottom:10px"><button class="btn btn-b" onclick="goView('payslip')">📄 View full latest payslip</button></div>
     <div class="grid2">
       <div>
         <div class="kv"><span>Gross — weekly (40h)</span><span id="inWeek">£508.40</span></div>
@@ -336,6 +337,11 @@
           <li><b>DAYS CO SICK PAY</b> — company sick pay: paid sick days at the day rate (units × £127.11 = 10h × £12.71).</li>
           <li><b>NOR1</b> — an additional pay element/allowance; if unsure what it covers, ask payroll.</li>
           <li><b>OTHERS</b> — a year-to-date bucket totalling smaller miscellaneous items.</li>
+          <li><b>BASIC RATE</b> — an adjustment at your basic hourly rate; on your slips it's usually a minus (hours docked at the older £11.44 rate).</li>
+          <li><b>RECEPTION INCENT</b> — a reception-desk incentive/bonus payment.</li>
+          <li><b>HEARTBEAT INCENT</b> — a payment from the &ldquo;Heartbeat&rdquo; staff recognition/rewards scheme.</li>
+          <li><b>MANUAL SSP</b> — Statutory Sick Pay entered manually by payroll.</li>
+          <li><b>DYS-UNPAID</b> — a deduction for unpaid days not worked (shows as a minus).</li>
           <li><b>TAX</b> — PAYE income tax. Your code <b>1257L</b> means £12,570/yr is tax-free.</li>
           <li><b>NAT INSURANCE</b> — your National Insurance (Category A).</li>
           <li><b>WPR NEST PEN 1</b> — your workplace pension paid into NEST.</li>
@@ -745,7 +751,7 @@ function renderHistory(){
   tblEl.innerHTML=h;
   var nEl=document.getElementById('histNotes');
   if(nEl){
-    var CAUSE={'HRS-O/TIME':'overtime','LEISUR CLB UPSEL':'leisure-club commission','PAY-BACK PAY':'back pay','PAY-TMOTM':'Team Member of the Month award','PAY HOLS & LIEU':'holiday/lieu pay','HOLIDAYS TAKEN':'holiday taken','LIEU DAYS TAKEN':'lieu days taken','ENHANCE HOL RATE':'holiday-rate top-up','DAYS CO SICK PAY':'company sick pay','DYS-UNPAID SICK':'unpaid sick day(s)','DAYS UNPAID SICK':'unpaid sick day(s)','NOR1':'allowance (NOR1)','OTHERS':'other adjustments'};
+    var CAUSE={'HRS-O/TIME':'overtime','LEISUR CLB UPSEL':'leisure-club commission','PAY-BACK PAY':'back pay','PAY-TMOTM':'Team Member of the Month award','PAY HOLS & LIEU':'holiday/lieu pay','HOLIDAYS TAKEN':'holiday taken','LIEU DAYS TAKEN':'lieu days taken','ENHANCE HOL RATE':'holiday-rate top-up','DAYS CO SICK PAY':'company sick pay','DYS-UNPAID SICK':'unpaid sick day(s)','DAYS UNPAID SICK':'unpaid sick day(s)','NOR1':'allowance (NOR1)','OTHERS':'other adjustments','BASIC RATE':'basic-rate adjustment','RECEPTION INCENT':'reception incentive','HEARTBEAT INCENT':'Heartbeat incentive','MANUAL SSP':'statutory sick pay','DYS-UNPAID':'unpaid days'};
     var out='';
     list.slice().reverse().forEach(function(p){
       var gr=p.paymentTotal?p.paymentTotal[0]:0, ex=expForDate(p.date), dv=gr-ex;
